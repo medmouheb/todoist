@@ -160,6 +160,6 @@ Everything except `/api/auth/*` needs `Authorization: Bearer <token>`. Errors co
 | GET | `/api/notifications` | `{unread, items}` |
 | POST | `/api/notifications/{id}/read`, `/read-all` | |
 
-## Before deploying anywhere
+## Putting it online
 
-Set a long random `JWT_SECRET` and a real `POSTGRES_PASSWORD` in `.env`, and don't publish the database port.
+[deploy/DEPLOY.md](deploy/DEPLOY.md) walks through hosting it for free on an Oracle Cloud Always Free server: `compose.prod.yaml` runs the same containers behind Caddy (automatic HTTPS), with only ports 80 and 443 open, settings in `.env.prod` (see `.env.prod.example`), real email through an SMTP service, daily backups (`deploy/backup.sh`) and one-command updates (`deploy/update.sh`).

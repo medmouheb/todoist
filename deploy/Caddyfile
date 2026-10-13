@@ -1,0 +1,14 @@
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# nginx in the frontend container serves the app and forwards /api to the backend.
+	reverse_proxy frontend:80
+}

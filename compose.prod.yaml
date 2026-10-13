@@ -1,0 +1,77 @@
+# Production: one server, HTTPS by Caddy, nothing but ports 80 and 443 open.
+#   cp .env.prod.example .env.prod   # then fill it in
+#   docker compose -f compose.prod.yaml --env-file .env.prod up -d --build
+# See deploy/DEPLOY.md for the whole walkthrough (Oracle Cloud Always Free).
+
+name: doable
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-doable}
+      POSTGRES_USER: ${POSTGRES_USER:-doable}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.prod}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-doable}
+      DB_USER: ${POSTGRES_USER:-doable}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.prod (at least 32 random characters)}
+      TZ: ${TZ:-UTC}
+      APP_URL: https://${DOMAIN:?Set DOMAIN in .env.prod}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_STARTTLS: ${MAIL_STARTTLS:-true}
+      MAIL_FROM: ${MAIL_FROM:-}
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # Gets and renews the HTTPS certificate (Let's Encrypt) for DOMAIN on its own.
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
