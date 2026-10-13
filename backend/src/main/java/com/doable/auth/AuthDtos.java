@@ -19,12 +19,27 @@ public final class AuthDtos {
     public record LoginRequest(@NotBlank @Email String email, @NotBlank String password) {
     }
 
-    public record UserResponse(Long id, String email, String name) {
-        static UserResponse of(User u) {
-            return new UserResponse(u.getId(), u.getEmail(), u.getName());
+    /** For "forgot password" and "email me a login link". */
+    public record EmailRequest(@NotBlank @Email String email) {
+    }
+
+    public record TokenRequest(@NotBlank String token) {
+    }
+
+    public record ResetPasswordRequest(@NotBlank String token, @NotBlank @Size(min = 8, max = 100) String password) {
+    }
+
+    public record UserResponse(Long id, String email, String name, String initials, String theme,
+                               String timeFormat, int weekStart, String homeView) {
+        public static UserResponse of(User u) {
+            return new UserResponse(u.getId(), u.getEmail(), u.getName(), User.initials(u.getName()), u.getTheme(),
+                    u.getTimeFormat(), u.getWeekStart(), u.getHomeView());
         }
     }
 
     public record AuthResponse(String token, UserResponse user) {
+    }
+
+    public record MessageResponse(String message) {
     }
 }

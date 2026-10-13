@@ -16,6 +16,7 @@ public class Project {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Who created it. Access is decided by {@link ProjectMember}, not by this. */
     @Column(name = "owner_id", nullable = false, updatable = false)
     private Long ownerId;
 
@@ -25,11 +26,11 @@ public class Project {
     @Column(nullable = false)
     private String color;
 
-    @Column(nullable = false)
-    private boolean favorite;
-
     @Column(nullable = false, updatable = false)
     private boolean inbox;
+
+    @Column(nullable = false)
+    private boolean archived;
 
     @Column(nullable = false)
     private int position;
@@ -54,9 +55,9 @@ public class Project {
     public void setName(String name) { this.name = name; }
     public String getColor() { return color; }
     public void setColor(String color) { this.color = color; }
-    public boolean isFavorite() { return favorite; }
-    public void setFavorite(boolean favorite) { this.favorite = favorite; }
     public boolean isInbox() { return inbox; }
+    public boolean isArchived() { return archived; }
+    public void setArchived(boolean archived) { this.archived = archived; }
     public int getPosition() { return position; }
     public Instant getCreatedAt() { return createdAt; }
 }

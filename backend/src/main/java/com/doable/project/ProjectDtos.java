@@ -1,28 +1,46 @@
 package com.doable.project;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.time.Instant;
 
 public final class ProjectDtos {
 
     /** Matches the project color tokens in the Doable design system (proj-moss, proj-clay, ...). */
-    static final String COLORS = "moss|clay|sky|plum|sun|rose|slate|teal|lime|charcoal";
+    public static final String COLORS = "moss|clay|sky|plum|sun|rose|slate|teal|lime|charcoal";
 
     private ProjectDtos() {
     }
 
+    /** name and color need an admin; favorite is personal and anyone can set it. */
     public record ProjectRequest(
-            @NotBlank @Size(max = 120) String name,
+            @Size(min = 1, max = 120) String name,
             @Pattern(regexp = COLORS) String color,
-            Boolean favorite) {
+            Boolean favorite,
+            Boolean archived) {
     }
 
     public record ProjectResponse(Long id, String name, String color, boolean favorite, boolean inbox,
-                                  int position, long openTasks) {
-        static ProjectResponse of(Project p, long openTasks) {
-            return new ProjectResponse(p.getId(), p.getName(), p.getColor(), p.isFavorite(), p.isInbox(),
-                    p.getPosition(), openTasks);
-        }
+                                  boolean archived, int position, long openTasks, Role role, long memberCount) {
+    }
+
+    public record InviteRequest(@NotBlank @Email @Size(max = 255) String email, @NotNull Role role) {
+    }
+
+    public record RoleRequest(@NotNull Role role) {
+    }
+
+    public record MemberResponse(Long userId, String name, String email, String initials, Role role) {
+    }
+
+    public record InviteResponse(Long id, Long projectId, String projectName, String email, Role role,
+                                 String invitedBy, Instant createdAt) {
+    }
+
+    public record SharingResponse(Role myRole, java.util.List<MemberResponse> members,
+                                  java.util.List<InviteResponse> invites) {
     }
 }

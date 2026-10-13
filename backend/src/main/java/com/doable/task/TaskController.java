@@ -31,18 +31,33 @@ public class TaskController {
         this.tasks = tasks;
     }
 
-    /** GET /api/tasks?view=today&date=2026-10-13, or /api/tasks?projectId=3[&completed=true]. */
+    /**
+     * GET /api/tasks?view=today&date=2026-10-13 (inbox, today, upcoming),
+     * /api/tasks?projectId=3, or /api/tasks?parentId=7 for sub-tasks.
+     */
     @GetMapping
     public List<TaskResponse> list(@AuthenticationPrincipal Jwt jwt,
                                    @RequestParam(required = false) String view,
                                    @RequestParam(required = false) LocalDate date,
                                    @RequestParam(required = false) Long projectId,
-                                   @RequestParam(defaultValue = "false") boolean completed) {
-        long owner = CurrentUser.id(jwt);
-        if (projectId != null) {
-            return tasks.byProject(owner, projectId, completed);
-        }
-        return tasks.view(owner, view == null ? "inbox" : view, date == null ? LocalDate.now() : date);
+                                   @RequestParam(required = false) Long parentId) {
+        long user = CurrentUser.id(jwt);
+        if (parentId != null) return tasks.subtasks(user, parentId);
+        if (projectId != null) return tasks.byProject(user, projectId);
+        return tasks.view(user, view == null ? "inbox" : view, date == null ? LocalDate.now() : date);
+    }
+
+    /** Completed tasks, newest first; all projects unless projectId is given. */
+    @GetMapping("/completed")
+    public List<TaskResponse> completed(@AuthenticationPrincipal Jwt jwt,
+                                        @RequestParam(required = false) Long projectId,
+                                        @RequestParam(defaultValue = "200") int limit) {
+        return tasks.completed(CurrentUser.id(jwt), projectId, limit);
+    }
+
+    @GetMapping("/{id}")
+    public TaskResponse get(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        return tasks.get(CurrentUser.id(jwt), id);
     }
 
     @PostMapping
@@ -61,5 +76,11 @@ public class TaskController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         tasks.delete(CurrentUser.id(jwt), id);
+    }
+
+    /** Undo a delete (within 7 days). */
+    @PostMapping("/{id}/restore")
+    public TaskResponse restore(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        return tasks.restore(CurrentUser.id(jwt), id);
     }
 }

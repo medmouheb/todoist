@@ -1,0 +1,76 @@
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
+import { Api, errorMessage } from '../../core/api';
+import { Icon } from '../../core/icon';
+import { Invite } from '../../core/models';
+import { Store } from '../../core/store';
+
+/** Where invite emails link to: accept or decline pending project invitations. */
+@Component({
+  selector: 'app-invites-page',
+  imports: [Icon],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <div class="page">
+      <h1>Invitations</h1>
+      @if (!loaded()) {
+        <div class="skeleton"></div>
+      } @else {
+        @for (i of invites(); track i.id) {
+          <div class="card">
+            <app-icon name="share" />
+            <div class="text">
+              <b>{{ i.projectName }}</b>
+              <span class="muted">{{ i.invitedBy ?? 'Someone' }} invited you as {{ roleName(i.role) }}</span>
+            </div>
+            <button type="button" class="btn" (click)="answer(i, false)">Decline</button>
+            <button type="button" class="btn primary" (click)="answer(i, true)">Join</button>
+          </div>
+        } @empty {
+          <p class="muted">No pending invitations. When someone shares a project with you, it shows up here and in your notifications.</p>
+        }
+      }
+    </div>
+  `,
+  styles: `
+    .page { max-width: 640px; margin: 0 auto; padding: 24px 32px; }
+    @media (max-width: 760px) { .page { padding: 8px 16px; } }
+    h1 { font-size: 26px; margin: 0 0 16px; }
+    .card { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 8px; background: var(--surface); flex-wrap: wrap; }
+    .text { flex: 1; display: flex; flex-direction: column; min-width: 160px; }
+    .skeleton { height: 64px; border-radius: var(--radius-lg); background: var(--surface-sunken); }
+  `,
+})
+export class InvitesPage implements OnInit {
+  private api = inject(Api);
+  private store = inject(Store);
+  private router = inject(Router);
+  protected readonly invites = signal<Invite[]>([]);
+  protected readonly loaded = signal(false);
+
+  ngOnInit(): void {
+    this.api.myInvites().subscribe((is) => {
+      this.invites.set(is);
+      this.loaded.set(true);
+    });
+  }
+
+  protected roleName(r: string): string {
+    return r === 'ADMIN' ? 'an admin' : r === 'GUEST' ? 'a guest' : 'a member';
+  }
+
+  protected answer(i: Invite, accept: boolean): void {
+    this.api.answerInvite(i.id, accept).subscribe({
+      next: () => {
+        this.invites.update((is) => is.filter((x) => x.id !== i.id));
+        this.store.loadProjects();
+        this.store.loadNotifications();
+        if (accept) {
+          this.store.toast(`You joined “${i.projectName}”`);
+          this.router.navigate(['/project', i.projectId]);
+        }
+      },
+      error: (err) => this.store.toast(errorMessage(err)),
+    });
+  }
+}

@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { CanActivateFn, RedirectFunction, Router } from '@angular/router';
 import { Observable, catchError, tap, throwError } from 'rxjs';
 import { AuthResponse, User } from './models';
 
@@ -15,6 +15,15 @@ function read(key: string): string | null {
   }
 }
 
+function write(key: string, value: string | null): void {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    /* storage unavailable: keep it in memory for this tab */
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class Auth {
   private http = inject(HttpClient);
@@ -23,6 +32,15 @@ export class Auth {
   readonly token = signal<string | null>(read(TOKEN_KEY));
   readonly user = signal<User | null>(JSON.parse(read(USER_KEY) ?? 'null'));
   readonly signedIn = computed(() => this.token() !== null);
+
+  constructor() {
+    // The theme setting overrides the OS preference through <html data-theme>.
+    effect(() => {
+      const theme = this.user()?.theme ?? 'system';
+      if (theme === 'system') delete document.documentElement.dataset['theme'];
+      else document.documentElement.dataset['theme'] = theme;
+    });
+  }
 
   login(email: string, password: string): Observable<AuthResponse> {
     return this.http.post<AuthResponse>('/api/auth/login', { email, password }).pipe(tap((r) => this.store(r)));
@@ -34,27 +52,30 @@ export class Auth {
       .pipe(tap((r) => this.store(r)));
   }
 
+  /** After a password reset or login link. */
+  store(r: AuthResponse): void {
+    this.token.set(r.token);
+    write(TOKEN_KEY, r.token);
+    this.setUser(r.user);
+  }
+
+  setUser(u: User): void {
+    this.user.set(u);
+    write(USER_KEY, JSON.stringify(u));
+  }
+
+  /** Where to go after signing in: the page they were sent away from, or their home view. */
+  home(returnUrl?: string | null): string {
+    if (returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//')) return returnUrl;
+    return '/' + (this.user()?.homeView ?? 'today');
+  }
+
   logout(): void {
     this.token.set(null);
     this.user.set(null);
-    try {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
-    } catch {
-      /* storage unavailable: nothing to clear */
-    }
+    write(TOKEN_KEY, null);
+    write(USER_KEY, null);
     this.router.navigateByUrl('/login');
-  }
-
-  private store(r: AuthResponse): void {
-    this.token.set(r.token);
-    this.user.set(r.user);
-    try {
-      localStorage.setItem(TOKEN_KEY, r.token);
-      localStorage.setItem(USER_KEY, JSON.stringify(r.user));
-    } catch {
-      /* storage unavailable: stay signed in for this tab only */
-    }
   }
 }
 
@@ -73,8 +94,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   );
 };
 
-export const signedInGuard: CanActivateFn = () =>
-  inject(Auth).signedIn() || inject(Router).parseUrl('/login');
+export const signedInGuard: CanActivateFn = (_route, state) =>
+  inject(Auth).signedIn() || inject(Router).createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
 
 export const signedOutGuard: CanActivateFn = () =>
-  !inject(Auth).signedIn() || inject(Router).parseUrl('/today');
+  !inject(Auth).signedIn() || inject(Router).parseUrl(inject(Auth).home());
+
+/** "/" goes to the home view chosen in settings. */
+export const homeRedirect: RedirectFunction = () => inject(Auth).home().slice(1);

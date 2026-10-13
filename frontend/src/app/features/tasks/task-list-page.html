@@ -1,0 +1,112 @@
+<div class="page">
+  <header class="vh">
+    <div class="titlebar">
+      <h1>
+        @if (project(); as p) { @if (!p.inbox) { <span class="hash" [style.--pc]="'var(--proj-' + p.color + ')'">#</span> } }
+        {{ heading() }}
+      </h1>
+      @if (project(); as p) {
+        <div class="tools">
+          @if (members().length) {
+            <button type="button" class="people" (click)="store.shareProjectId.set(p.id)" [title]="members().length + ' people'">
+              @for (m of members().slice(0, 4); track m.userId) {
+                <span class="av" [style.--ac]="color(m.userId)" [title]="m.name">{{ m.initials }}</span>
+              }
+              @if (members().length > 4) { <span class="more">+{{ members().length - 4 }}</span> }
+            </button>
+          }
+          @if (!p.inbox) {
+            <button type="button" class="btn ghost sm" (click)="store.shareProjectId.set(p.id)"><app-icon name="share" [small]="true" />Share</button>
+          }
+          <app-project-menu [project]="p" />
+        </div>
+      }
+    </div>
+    @if (loaded()) {
+      <div class="count"><app-icon name="done" [small]="true" />{{ total() }} {{ total() === 1 ? 'task' : 'tasks' }}</div>
+    }
+  </header>
+
+  @if (project()?.archived) {
+    <div class="banner">
+      <app-icon name="archive" />
+      <span>This project is archived. Its tasks don’t show in Today or Upcoming.</span>
+      @if (project()!.role === 'ADMIN') {
+        <button type="button" class="btn sm" (click)="projectActions.setArchived(project()!, false)">Unarchive</button>
+      }
+    </div>
+  }
+  @if (project()?.role === 'GUEST') {
+    <div class="banner"><app-icon name="person" /><span>You’re a guest here: you can comment and complete tasks assigned to you.</span></div>
+  }
+
+  @if (view() === 'upcoming') {
+    <div class="weekbar">
+      <b>{{ weekLabel() }}</b>
+      <span class="wnav">
+        <button type="button" class="ibtn" aria-label="Previous week" [disabled]="isCurrentWeek()" (click)="shiftWeek(-1)"><app-icon name="left" /></button>
+        <button type="button" class="btn sm" (click)="shiftWeek(0)">Today</button>
+        <button type="button" class="ibtn" aria-label="Next week" (click)="shiftWeek(1)"><app-icon name="right" /></button>
+      </span>
+    </div>
+    <div class="strip" role="list">
+      @for (d of week(); track d.iso) {
+        <button type="button" role="listitem" class="sday" [class.past]="d.past" [class.today]="d.today" [disabled]="d.past"
+                [class.drop]="dropTarget() === 'strip-' + d.iso"
+                (click)="jumpTo(d.iso)" (dragover)="onDragOver($event, 'strip-' + d.iso, d.iso)"
+                (dragleave)="dropTarget.set(null)" (drop)="onDrop($event, d.iso)">
+          <span class="wd">{{ d.weekday }}</span><span class="dn">{{ d.day }}</span>
+          <span class="dot" [class.on]="d.count > 0"></span>
+        </button>
+      }
+    </div>
+    <p class="hint dnd">Drag a task onto a day to reschedule it.</p>
+  }
+
+  @if (!loaded()) {
+    @for (i of [1, 2, 3]; track i) { <div class="skeleton"></div> }
+  } @else {
+    @for (s of sections(); track s.key) {
+      <section [id]="'day-' + s.key" [class.drop]="dropTarget() === s.key"
+               (dragover)="onDragOver($event, s.key, s.date)" (dragleave)="dropTarget.set(null)" (drop)="onDrop($event, s.date)">
+        @if (s.name) {
+          <h2 class="sec" [class.overdue]="s.tone === 'overdue'">
+            <span>{{ s.name }}</span>
+            @if (s.tone === 'overdue' && canAdd()) {
+              <button #rescheduleBtn type="button" class="resched" (click)="rescheduling.set(true)">Reschedule</button>
+            }
+          </h2>
+        }
+        @for (t of s.tasks; track t.id) {
+          <app-task-row [task]="t" [showProject]="mixesProjects()" [selected]="selectedId() === t.id" (click)="selectedId.set(t.id)" />
+        }
+        @if (s.tone !== 'overdue' && canAdd()) {
+          @if (adding() === s.key) {
+            <div class="adding">
+              <app-task-editor [defaultProjectId]="projectId()" [defaultDueDate]="s.date ?? null" (cancelled)="adding.set(null)" />
+            </div>
+          } @else {
+            <button class="add" type="button" (click)="adding.set(s.key)">
+              <span class="plus"><app-icon name="plus" [small]="true" /></span>Add task
+            </button>
+          }
+        }
+      </section>
+    }
+    @if (total() === 0 && adding() === null && view() !== 'upcoming') {
+      <div class="empty">
+        <p class="big">{{ emptyTitle() }}</p>
+        <p class="muted">{{ emptyText() }}</p>
+      </div>
+    }
+    <p class="hint keys">
+      <span class="kbd">↑</span> <span class="kbd">↓</span> select · <span class="kbd">Enter</span> open ·
+      <span class="kbd">E</span> edit · <span class="kbd">T</span> date · <span class="kbd">1</span>–<span class="kbd">4</span> priority ·
+      <span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> complete · <span class="kbd">?</span> all shortcuts
+    </p>
+  }
+</div>
+
+@if (rescheduling()) {
+  <app-date-picker [anchor]="rescheduleAnchor()" (picked)="rescheduleOverdue($event.date)" (closed)="rescheduling.set(false)" />
+}

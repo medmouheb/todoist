@@ -1,10 +1,19 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import {
+  ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, effect, inject, input, signal, untracked,
+  viewChild, viewChildren,
+} from '@angular/core';
 import { Observable } from 'rxjs';
 import { Api } from '../../core/api';
-import { dayHeading, todayIso } from '../../core/dates';
+import { Auth } from '../../core/auth';
+import { addDays, dayHeading, fromIso, startOfWeek, todayIso } from '../../core/dates';
 import { Icon } from '../../core/icon';
-import { Task, TaskView } from '../../core/models';
+import { Priority, Task, TaskView } from '../../core/models';
+import { ProjectActions } from '../../core/project-actions';
 import { Store } from '../../core/store';
+import { TaskActions } from '../../core/task-actions';
+import { DatePicker } from '../../shared/date-picker';
+import { avatarColor } from '../../shared/dropdown';
+import { ProjectMenu } from '../shell/project-menu';
 import { TaskEditor } from './task-editor';
 import { TaskRow } from './task-row';
 
@@ -13,83 +22,24 @@ interface Section {
   name: string;
   tone?: 'overdue';
   tasks: Task[];
-  /** Due date given to tasks added in this section. */
-  addDate?: string | null;
+  /** Due date for tasks added here, and where dropped tasks go. Undefined: no date target. */
+  date?: string | null;
 }
 
 /** Inbox, Today, Upcoming and project views: same list, different query and grouping. */
 @Component({
   selector: 'app-task-list-page',
-  imports: [TaskRow, TaskEditor, Icon],
+  imports: [TaskRow, TaskEditor, Icon, DatePicker, ProjectMenu],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="page">
-      <header class="vh">
-        <h1>
-          @if (project(); as p) { @if (!p.inbox) { <span class="hash" [style.--pc]="'var(--proj-' + p.color + ')'">#</span> } }
-          {{ heading() }}
-        </h1>
-        @if (loaded()) {
-          <div class="count"><app-icon name="done" [small]="true" />{{ total() }} {{ total() === 1 ? 'task' : 'tasks' }}</div>
-        }
-      </header>
-
-      @if (!loaded()) {
-        @for (i of [1, 2, 3]; track i) { <div class="skeleton"></div> }
-      } @else {
-        @for (s of sections(); track s.key) {
-          <section>
-            @if (s.name) { <h2 class="sec" [class.overdue]="s.tone === 'overdue'">{{ s.name }}</h2> }
-            @for (t of s.tasks; track t.id) {
-              <app-task-row [task]="t" [showProject]="mixesProjects()" />
-            }
-            @if (adding() === s.key) {
-              <div class="adding">
-                <app-task-editor [defaultProjectId]="projectId()" [defaultDueDate]="s.addDate ?? null"
-                                 (saved)="adding.set(null)" (cancelled)="adding.set(null)" />
-              </div>
-            } @else if (s.tone !== 'overdue') {
-              <button class="add" type="button" (click)="adding.set(s.key)">
-                <span class="plus"><app-icon name="plus" [small]="true" /></span>Add task
-              </button>
-            }
-          </section>
-        }
-        @if (total() === 0 && adding() === null) {
-          <div class="empty">
-            <p class="big">{{ emptyTitle() }}</p>
-            <p class="muted">{{ emptyText() }}</p>
-          </div>
-        }
-      }
-    </div>
-  `,
-  styles: `
-    .page { max-width: var(--content-width); margin: 0 auto; padding: 24px 32px 80px; }
-    @media (max-width: 760px) { .page { padding: 8px 16px 80px; } }
-    .vh { margin-bottom: 12px; }
-    h1 { font-size: 26px; line-height: 34px; margin: 0; letter-spacing: -.01em; display: flex; gap: 8px; align-items: baseline; }
-    .count { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-muted); margin-top: 2px; }
-    section { margin-bottom: 20px; }
-    .sec { font-size: 14px; font-weight: 700; margin: 0; padding: 8px 0 6px; border-bottom: 1px solid var(--border); }
-    .sec.overdue { color: var(--date-overdue); }
-    .add {
-      display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 0; border: 0; background: transparent;
-      color: var(--ink-muted); cursor: pointer; text-align: left;
-    }
-    .add .plus { width: 18px; height: 18px; display: grid; place-items: center; color: var(--brand); border-radius: 99px; }
-    .add:hover { color: var(--brand-ink); }
-    .add:hover .plus { background: var(--brand); color: var(--on-brand); }
-    .adding { padding: 8px 0; }
-    .empty { text-align: center; padding: 48px 16px; }
-    .empty .big { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
-    .empty p { margin: 0; }
-    .skeleton { height: 44px; border-bottom: 1px solid var(--border); background: linear-gradient(90deg, var(--surface-sunken) 0 40%, transparent 40%) no-repeat 28px 50% / 60% 12px; }
-  `,
+  templateUrl: './task-list-page.html',
+  styleUrl: './task-list-page.css',
 })
 export class TaskListPage {
   private api = inject(Api);
-  private store = inject(Store);
+  private auth = inject(Auth);
+  protected store = inject(Store);
+  protected actions = inject(TaskActions);
+  protected projectActions = inject(ProjectActions);
 
   /** From the route: either a fixed view (data.view) or a project id (:id). */
   readonly view = input<TaskView | undefined>(undefined);
@@ -98,14 +48,30 @@ export class TaskListPage {
   protected readonly tasks = signal<Task[]>([]);
   protected readonly loaded = signal(false);
   protected readonly adding = signal<string | null>(null);
+  protected readonly selectedId = signal<number | null>(null);
+  protected readonly rescheduling = signal(false);
+  protected readonly dropTarget = signal<string | null>(null);
+  /** First day of the week shown in Upcoming. */
+  protected readonly weekStartDay = signal(startOfWeek(todayIso(), this.auth.user()?.weekStart ?? 1));
+  private rows = viewChildren(TaskRow);
+  private rescheduleBtn = viewChild<ElementRef<HTMLElement>>('rescheduleBtn');
 
   protected readonly projectId = computed(() => {
     if (this.id()) return Number(this.id());
     return this.view() === 'inbox' ? (this.store.inbox()?.id ?? null) : null;
   });
-  protected readonly project = computed(() => (this.id() ? this.store.project(Number(this.id())) : undefined));
+  protected readonly project = computed(() => {
+    const id = this.projectId();
+    return id ? this.store.project(id) : undefined;
+  });
+  protected readonly canAdd = computed(() => {
+    const p = this.project();
+    return !p || (p.role !== 'GUEST' && !p.archived);
+  });
   protected readonly mixesProjects = computed(() => this.view() === 'today' || this.view() === 'upcoming');
   protected readonly total = computed(() => this.tasks().length);
+  protected readonly overdue = computed(() => this.tasks().filter((t) => t.dueDate && t.dueDate < todayIso()));
+  protected readonly members = signal<{ userId: number; initials: string; name: string }[]>([]);
 
   protected readonly heading = computed(() => {
     switch (this.view()) {
@@ -116,6 +82,25 @@ export class TaskListPage {
     }
   });
 
+  /** The 7 days of the Upcoming strip. */
+  protected readonly week = computed(() => {
+    const today = todayIso();
+    const counts = new Map<string, number>();
+    for (const t of this.tasks()) if (t.dueDate) counts.set(t.dueDate, (counts.get(t.dueDate) ?? 0) + 1);
+    return Array.from({ length: 7 }, (_, i) => {
+      const iso = addDays(this.weekStartDay(), i);
+      const d = fromIso(iso);
+      return {
+        iso, day: d.getDate(), past: iso < today, today: iso === today, count: counts.get(iso) ?? 0,
+        weekday: d.toLocaleDateString(undefined, { weekday: 'short' }),
+      };
+    });
+  });
+  protected readonly weekLabel = computed(() =>
+    fromIso(this.weekStartDay()).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }));
+  protected readonly isCurrentWeek = computed(() =>
+    this.weekStartDay() === startOfWeek(todayIso(), this.auth.user()?.weekStart ?? 1));
+
   protected readonly sections = computed<Section[]>(() => {
     const tasks = this.tasks();
     const today = todayIso();
@@ -124,17 +109,24 @@ export class TaskListPage {
       const due = tasks.filter((t) => t.dueDate === today);
       return [
         ...(overdue.length ? [{ key: 'overdue', name: 'Overdue', tone: 'overdue' as const, tasks: overdue }] : []),
-        { key: 'today', name: dayHeading(today), tasks: due, addDate: today },
+        { key: 'today', name: dayHeading(today), tasks: due, date: today },
       ];
     }
     if (this.view() === 'upcoming') {
-      const byDay = new Map<string, Task[]>();
-      for (const t of tasks) byDay.set(t.dueDate!, [...(byDay.get(t.dueDate!) ?? []), t]);
-      if (!byDay.has(today)) byDay.set(today, []);
-      return [...byDay.keys()].sort().map((d) => ({ key: d, name: dayHeading(d), tasks: byDay.get(d)!, addDate: d }));
+      const out: Section[] = [];
+      const overdue = tasks.filter((t) => t.dueDate! < today);
+      if (this.isCurrentWeek() && overdue.length) out.push({ key: 'overdue', name: 'Overdue', tone: 'overdue', tasks: overdue });
+      for (const d of this.week()) {
+        if (d.past) continue;
+        out.push({ key: d.iso, name: dayHeading(d.iso), tasks: tasks.filter((t) => t.dueDate === d.iso), date: d.iso });
+      }
+      return out;
     }
     return [{ key: 'all', name: '', tasks }];
   });
+
+  /** Every visible task, in screen order, for keyboard navigation. */
+  private readonly flat = computed(() => this.sections().flatMap((s) => s.tasks));
 
   protected readonly emptyTitle = computed(() =>
     this.view() === 'today' ? 'All clear for today' : this.view() === 'inbox' ? 'Your Inbox is empty' : 'Nothing here yet');
@@ -149,6 +141,12 @@ export class TaskListPage {
       this.store.tasksVersion();
       untracked(() => this.load(view, id));
     });
+    // People in a shared project, for the header.
+    effect(() => {
+      const p = this.project();
+      if (!p || p.memberCount < 2) return this.members.set([]);
+      untracked(() => this.store.members(p.id).subscribe((ms) => this.members.set(ms)));
+    });
   }
 
   private lastKey = '';
@@ -159,6 +157,7 @@ export class TaskListPage {
       this.lastKey = key;
       this.loaded.set(false);
       this.adding.set(null);
+      this.selectedId.set(null);
     }
     const req: Observable<Task[]> = id ? this.api.projectTasks(Number(id)) : this.api.viewTasks(view ?? 'today');
     req.subscribe({
@@ -169,5 +168,84 @@ export class TaskListPage {
       },
       error: () => this.loaded.set(true),
     });
+  }
+
+  protected color = avatarColor;
+
+  protected shiftWeek(n: number): void {
+    if (n === 0) this.weekStartDay.set(startOfWeek(todayIso(), this.auth.user()?.weekStart ?? 1));
+    else this.weekStartDay.update((d) => addDays(d, 7 * n));
+  }
+
+  protected jumpTo(iso: string): void {
+    document.getElementById('day-' + iso)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  protected rescheduleAnchor(): HTMLElement | null {
+    return this.rescheduleBtn()?.nativeElement ?? null;
+  }
+
+  protected rescheduleOverdue(date: string | null): void {
+    this.rescheduling.set(false);
+    this.actions.moveToDate(this.overdue(), date);
+  }
+
+  // ---- drag and drop onto a day ----
+
+  protected onDragOver(e: DragEvent, key: string, date: string | null | undefined): void {
+    if (date === undefined || !e.dataTransfer?.types.includes('application/x-doable-task')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    this.dropTarget.set(key);
+  }
+
+  protected onDrop(e: DragEvent, date: string | null | undefined): void {
+    this.dropTarget.set(null);
+    if (date === undefined) return;
+    const id = Number(e.dataTransfer?.getData('application/x-doable-task'));
+    const t = this.tasks().find((x) => x.id === id);
+    if (!t || t.dueDate === date) return;
+    e.preventDefault();
+    this.actions.moveToDate([t], date);
+  }
+
+  // ---- keyboard ----
+
+  @HostListener('document:keydown', ['$event'])
+  protected onKey(e: KeyboardEvent): void {
+    const el = e.target as HTMLElement;
+    if (el.closest('input, textarea, select, [contenteditable], .menu, [role="dialog"]')) return;
+    if (this.store.openTaskId() || this.store.quickAdd() || this.store.confirmRequest() || this.store.shareProjectId()
+      || this.store.settingsOpen() || this.store.shortcutsOpen() || this.store.editingProject()) return;
+    const list = this.flat();
+    const i = list.findIndex((t) => t.id === this.selectedId());
+    const selected = i >= 0 ? list[i] : null;
+    const row = i >= 0 ? this.rows()[i] : null;
+    const mod = e.ctrlKey || e.metaKey;
+
+    if (e.key === 'ArrowDown' || (e.key === 'j' && !mod)) return this.select(list[Math.min(i + 1, list.length - 1)], e);
+    if (e.key === 'ArrowUp' || (e.key === 'k' && !mod)) return this.select(list[Math.max(i - 1, 0)], e);
+    if (e.key === 'Escape') return this.selectedId.set(null);
+    if (!selected) return;
+    if (e.key === 'Enter' && mod) return this.run(e, () => this.actions.toggleComplete(selected));
+    if (e.key === 'Enter') return this.run(e, () => this.store.openTaskId.set(selected.id));
+    if (e.key === 'e' && !mod) return this.run(e, () => row?.edit());
+    if (e.key === 't' && !mod) return this.run(e, () => row?.pickDate());
+    if (['1', '2', '3', '4'].includes(e.key) && !mod) {
+      return this.run(e, () => this.actions.setPriority(selected, Number(e.key) as Priority));
+    }
+    if (e.key === 'Delete' || e.key === 'Backspace') return this.run(e, () => this.actions.remove(selected));
+  }
+
+  private select(t: Task | undefined, e: KeyboardEvent): void {
+    if (!t) return;
+    e.preventDefault();
+    this.selectedId.set(t.id);
+    queueMicrotask(() => document.querySelector('app-task-row.selected')?.scrollIntoView({ block: 'nearest' }));
+  }
+
+  private run(e: KeyboardEvent, fn: () => void): void {
+    e.preventDefault();
+    fn();
   }
 }

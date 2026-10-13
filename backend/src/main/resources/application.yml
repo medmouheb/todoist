@@ -14,13 +14,28 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    properties:
+      mail.smtp.connectiontimeout: 3000
+      mail.smtp.timeout: 3000
+      mail.smtp.writetimeout: 3000
+  servlet:
+    multipart:
+      max-file-size: 2MB
 
 doable:
+  app-url: ${APP_URL:http://localhost:4200}
+  mail-from: ${MAIL_FROM:Doable <no-reply@doable.local>}
   jwt:
     secret: ${JWT_SECRET:change-me-to-a-long-random-string-of-32-plus-chars}
     ttl-hours: ${JWT_TTL_HOURS:168}
 
 management:
+  health:
+    mail:
+      enabled: false
   endpoints:
     web:
       exposure:

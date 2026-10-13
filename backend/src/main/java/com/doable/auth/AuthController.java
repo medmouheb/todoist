@@ -1,17 +1,14 @@
 package com.doable.auth;
 
 import com.doable.auth.AuthDtos.AuthResponse;
+import com.doable.auth.AuthDtos.EmailRequest;
 import com.doable.auth.AuthDtos.LoginRequest;
+import com.doable.auth.AuthDtos.MessageResponse;
+import com.doable.auth.AuthDtos.ResetPasswordRequest;
 import com.doable.auth.AuthDtos.SignupRequest;
-import com.doable.auth.AuthDtos.UserResponse;
-import com.doable.common.CurrentUser;
-import com.doable.common.NotFoundException;
-import com.doable.user.UserRepository;
+import com.doable.auth.AuthDtos.TokenRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,12 +19,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    private final AuthService auth;
-    private final UserRepository users;
+    private static final MessageResponse CHECK_EMAIL =
+            new MessageResponse("If an account exists for that email, we've sent it a link.");
 
-    public AuthController(AuthService auth, UserRepository users) {
+    private final AuthService auth;
+
+    public AuthController(AuthService auth) {
         this.auth = auth;
-        this.users = users;
     }
 
     @PostMapping("/signup")
@@ -41,9 +39,27 @@ public class AuthController {
         return auth.login(req);
     }
 
-    @GetMapping("/me")
-    public UserResponse me(@AuthenticationPrincipal Jwt jwt) {
-        return users.findById(CurrentUser.id(jwt)).map(UserResponse::of)
-                .orElseThrow(() -> new NotFoundException("User"));
+    @PostMapping("/forgot-password")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public MessageResponse forgotPassword(@Valid @RequestBody EmailRequest req) {
+        auth.forgotPassword(req.email());
+        return CHECK_EMAIL;
+    }
+
+    @PostMapping("/reset-password")
+    public AuthResponse resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
+        return auth.resetPassword(req);
+    }
+
+    @PostMapping("/login-link")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public MessageResponse loginLink(@Valid @RequestBody EmailRequest req) {
+        auth.sendLoginLink(req.email());
+        return CHECK_EMAIL;
+    }
+
+    @PostMapping("/login-link/verify")
+    public AuthResponse verifyLoginLink(@Valid @RequestBody TokenRequest req) {
+        return auth.loginWithLink(req.token());
     }
 }

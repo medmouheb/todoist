@@ -1,11 +1,36 @@
 <div class="layout" [class.open]="sidebarOpen()">
   <aside class="side" aria-label="Navigation">
     <div class="side-top">
-      <span class="who"><span class="av">{{ initials() }}</span>{{ auth.user()?.name }}</span>
-      <button class="ibtn" type="button" title="Log out" (click)="auth.logout()"><app-icon name="logout" /></button>
+      <app-dropdown>
+        <button trigger type="button" class="who" aria-label="Account menu">
+          <span class="av" [style.--ac]="color(auth.user()?.id)">{{ auth.user()?.initials }}</span>
+          <span class="name">{{ auth.user()?.name }}</span><app-icon name="chevron" [small]="true" />
+        </button>
+        <div class="menu-cap">{{ auth.user()?.email }}</div>
+        <button type="button" (click)="store.settingsOpen.set(true)"><app-icon name="settings" [small]="true" />Settings</button>
+        <hr />
+        <div class="menu-cap">Theme</div>
+        <button type="button" role="menuitemradio" [attr.aria-checked]="auth.user()?.theme === 'system'" (click)="setTheme('system')">Match my device</button>
+        <button type="button" role="menuitemradio" [attr.aria-checked]="auth.user()?.theme === 'light'" (click)="setTheme('light')">Light</button>
+        <button type="button" role="menuitemradio" [attr.aria-checked]="auth.user()?.theme === 'dark'" (click)="setTheme('dark')">Dark</button>
+        <hr />
+        <button type="button" (click)="store.shortcutsOpen.set(true)"><app-icon name="keyboard" [small]="true" />Keyboard shortcuts<span class="kbd k">?</span></button>
+        <button type="button" (click)="exportData()"><app-icon name="download" [small]="true" />Export my data</button>
+        <hr />
+        <button type="button" (click)="auth.logout()"><app-icon name="logout" [small]="true" />Log out</button>
+      </app-dropdown>
+
+      <span class="bell-wrap">
+        <button type="button" class="ibtn" [attr.aria-label]="'Notifications' + (store.unread() ? ', ' + store.unread() + ' unread' : '')"
+                [attr.aria-expanded]="bellOpen()" (click)="bellOpen.set(!bellOpen())">
+          <app-icon name="bell" />
+          @if (store.unread()) { <span class="badge">{{ store.unread() > 9 ? '9+' : store.unread() }}</span> }
+        </button>
+        @if (bellOpen()) { <app-notifications-panel class="bell-panel" (done)="bellOpen.set(false)" /> }
+      </span>
     </div>
 
-    <button class="nav add" type="button" (click)="quickAdd.set(true)" title="Add task (Q)">
+    <button class="nav add" type="button" (click)="store.quickAdd.set(true)" title="Add task (Q)">
       <span class="addp"><app-icon name="plus" [small]="true" /></span>Add task
     </button>
 
@@ -15,6 +40,7 @@
     </a>
     <a class="nav" routerLink="/today" routerLinkActive="on"><app-icon name="today" /><span>Today</span></a>
     <a class="nav" routerLink="/upcoming" routerLinkActive="on"><app-icon name="upcoming" /><span>Upcoming</span></a>
+    <a class="nav" routerLink="/completed" routerLinkActive="on"><app-icon name="done" /><span>Completed</span></a>
 
     @if (store.favorites().length) {
       <div class="cap">Favorites</div>
@@ -28,20 +54,35 @@
 
     <div class="cap row">
       <span>My projects</span>
-      <button class="ibtn" type="button" title="Add project" (click)="newProject()"><app-icon name="plus" [small]="true" /></button>
+      <button class="ibtn" type="button" title="Add project" (click)="store.editingProject.set('new')"><app-icon name="plus" [small]="true" /></button>
     </div>
-    @for (p of store.userProjects(); track p.id) {
+    @for (p of store.activeProjects(); track p.id) {
       <div class="proj">
         <a class="nav" [routerLink]="['/project', p.id]" routerLinkActive="on">
           <span class="hash" [style.--pc]="'var(--proj-' + p.color + ')'">#</span><span>{{ p.name }}</span>
+          @if (p.memberCount > 1) { <app-icon name="share" [small]="true" class="shared" title="Shared" /> }
           @if (p.openTasks) { <span class="n">{{ p.openTasks }}</span> }
         </a>
-        <button class="ibtn more" type="button" [attr.aria-label]="'Edit ' + p.name" (click)="editProject(p)">
-          <app-icon name="more" />
-        </button>
+        <app-project-menu class="more" [project]="p" />
       </div>
     } @empty {
       <p class="muted none">No projects yet.</p>
+    }
+
+    @if (store.archivedProjects().length) {
+      <button type="button" class="cap row toggle" [attr.aria-expanded]="archivedOpen()" (click)="archivedOpen.set(!archivedOpen())">
+        <span>Archived ({{ store.archivedProjects().length }})</span><app-icon [name]="archivedOpen() ? 'chevron' : 'right'" [small]="true" />
+      </button>
+      @if (archivedOpen()) {
+        @for (p of store.archivedProjects(); track p.id) {
+          <div class="proj">
+            <a class="nav archived" [routerLink]="['/project', p.id]" routerLinkActive="on">
+              <span class="hash" [style.--pc]="'var(--proj-' + p.color + ')'">#</span><span>{{ p.name }}</span>
+            </a>
+            <app-project-menu class="more" [project]="p" />
+          </div>
+        }
+      }
     }
   </aside>
 
@@ -50,51 +91,26 @@
   <main class="main">
     <div class="top">
       <button class="ibtn menu" type="button" aria-label="Open menu" (click)="sidebarOpen.set(true)"><app-icon name="menu" /></button>
+      <span class="grow"></span>
+      <button class="ibtn" type="button" aria-label="Add task" (click)="store.quickAdd.set(true)"><app-icon name="plus" /></button>
     </div>
     <router-outlet />
   </main>
 </div>
 
-@if (quickAdd()) {
-  <div class="overlay" (click)="quickAdd.set(false)">
+@if (store.quickAdd()) {
+  <div class="overlay" (click)="store.quickAdd.set(false)">
     <div class="modal quick" role="dialog" aria-label="Add task" (click)="$event.stopPropagation()">
-      <app-task-editor (saved)="quickAdd.set(false)" (cancelled)="quickAdd.set(false)" />
+      <app-task-editor (saved)="store.quickAdd.set(false)" (cancelled)="store.quickAdd.set(false)" />
     </div>
   </div>
 }
-
-@if (projectForm(); as f) {
-  <div class="overlay" (click)="projectForm.set(null)">
-    <form class="modal pform" role="dialog" [attr.aria-label]="f.id ? 'Edit project' : 'Add project'"
-          (click)="$event.stopPropagation()" (ngSubmit)="saveProject()">
-      <h2>{{ f.id ? 'Edit project' : 'Add project' }}</h2>
-      <div class="field">
-        <label for="pname">Name</label>
-        <input id="pname" class="input" name="pname" [ngModel]="f.name" (ngModelChange)="updateForm({ name: $event })" autofocus />
-      </div>
-      <div class="field">
-        <span class="label">Color</span>
-        <div class="swatches" role="radiogroup" aria-label="Color">
-          @for (c of colors; track c) {
-            <button type="button" class="sw" role="radio" [attr.aria-checked]="f.color === c" [attr.aria-label]="c"
-                    [style.background]="'var(--proj-' + c + ')'" (click)="updateForm({ color: c })"></button>
-          }
-        </div>
-      </div>
-      <label class="check">
-        <input type="checkbox" name="fav" [ngModel]="f.favorite" (ngModelChange)="updateForm({ favorite: $event })" />
-        Add to favorites
-      </label>
-      @if (projectError()) { <p class="err" role="alert">{{ projectError() }}</p> }
-      <div class="actions">
-        @if (f.id) { <button class="btn ghost del" type="button" (click)="deleteProject()">Delete</button> }
-        <span class="grow"></span>
-        <button class="btn" type="button" (click)="projectForm.set(null)">Cancel</button>
-        <button class="btn primary" type="submit">{{ f.id ? 'Save' : 'Add' }}</button>
-      </div>
-    </form>
-  </div>
-}
+@if (store.openTaskId()) { <app-task-detail /> }
+@if (store.shareProjectId()) { <app-share-dialog /> }
+@if (store.editingProject()) { <app-project-dialog /> }
+@if (store.settingsOpen()) { <app-settings-dialog /> }
+@if (store.shortcutsOpen()) { <app-shortcuts-dialog /> }
+<app-confirm-dialog />
 
 <div class="toasts" aria-live="polite">
   @for (t of store.toasts(); track t.id) {

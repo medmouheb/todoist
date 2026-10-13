@@ -1,0 +1,145 @@
+<div class="overlay detail-overlay" (click)="close()">
+  <aside class="detail" role="dialog" aria-label="Task details" (click)="$event.stopPropagation()">
+    <header class="top">
+      <div class="crumbs">
+        @if (project(); as p) {
+          <span class="hash" [style.--pc]="'var(--proj-' + p.color + ')'">#</span>{{ p.inbox ? 'Inbox' : p.name }}
+        }
+        @if (parent(); as par) {
+          <span class="sep">/</span><button type="button" class="link" (click)="store.openTaskId.set(par.id)">{{ par.title }}</button>
+        }
+      </div>
+      @if (task() && canEdit()) {
+        <button type="button" class="ibtn" title="Delete task" (click)="actions.remove(task()!)"><app-icon name="trash" /></button>
+      }
+      <button type="button" class="ibtn" title="Close (Esc)" (click)="close()"><app-icon name="close" /></button>
+    </header>
+
+    @if (error()) {
+      <p class="err pad">{{ error() }}</p>
+    } @else if (!task()) {
+      <div class="pad"><div class="skeleton"></div><div class="skeleton short"></div></div>
+    } @else {
+      <div class="cols">
+        <div class="main">
+          <div class="headline">
+            <button type="button" class="check" [class]="'check p' + task()!.priority" role="checkbox" [disabled]="!canComplete()"
+                    [attr.aria-checked]="task()!.completed" [attr.aria-label]="task()!.completed ? 'Reopen' : 'Complete'"
+                    (click)="actions.toggleComplete(task()!)">
+              <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+            </button>
+            <input class="ttl" [class.done]="task()!.completed" [(ngModel)]="title" (blur)="saveTitle()" (keydown.enter)="saveTitle(); $any($event.target).blur()"
+                   [readonly]="!canEdit()" aria-label="Task name" />
+          </div>
+          <textarea class="desc" rows="3" placeholder="Description" [(ngModel)]="description" (blur)="saveDescription()"
+                    [readonly]="!canEdit()" aria-label="Description"></textarea>
+
+          <section class="subs">
+            <h3><app-icon name="subtask" [small]="true" />Sub-tasks
+              @if (task()!.subtaskCount) { <span class="muted">{{ task()!.subtaskDone }}/{{ task()!.subtaskCount }}</span> }
+            </h3>
+            @for (s of subtasks(); track s.id) { <app-task-row [task]="s" /> }
+            @if (canEdit()) {
+              @if (addingSub()) {
+                <div class="adding"><app-task-editor [parentId]="task()!.id" [defaultProjectId]="task()!.projectId" (cancelled)="addingSub.set(false)" /></div>
+              } @else {
+                <button type="button" class="add" (click)="addingSub.set(true)"><app-icon name="plus" [small]="true" />Add sub-task</button>
+              }
+            }
+          </section>
+
+          <section class="comments">
+            <h3><app-icon name="comment" [small]="true" />Comments @if (comments().length) { <span class="muted">{{ comments().length }}</span> }</h3>
+            @for (c of comments(); track c.id) {
+              <div class="comment">
+                <span class="av" [style.--ac]="color(c.authorId)">{{ c.authorInitials }}</span>
+                <div class="cbody">
+                  <div class="cmeta"><b>{{ c.authorName }}</b><span class="muted">{{ ago(c.createdAt) }}</span>
+                    @if (c.authorId === me()?.id) {
+                      <button type="button" class="ibtn sm" title="Delete comment" (click)="deleteComment(c)"><app-icon name="trash" [small]="true" /></button>
+                    }
+                  </div>
+                  <p>@for (part of parts(c.body); track $index) {<span [class.mention]="part.mention">{{ part.text }}</span>}</p>
+                </div>
+              </div>
+            }
+            <div class="composer">
+              <span class="av" [style.--ac]="color(me()?.id)">{{ me()?.initials }}</span>
+              <div class="cwrap">
+                <textarea class="input" rows="2" placeholder="Write a comment" [(ngModel)]="commentText" aria-label="Write a comment"
+                          (keydown.control.enter)="postComment()" (keydown.meta.enter)="postComment()"></textarea>
+                <div class="crow">
+                  <span class="hint">@if (mentionHint()) { Mention: {{ mentionHint() }} · } Ctrl+Enter to send</span>
+                  <button type="button" class="btn primary sm" [disabled]="!commentText.trim() || posting()" (click)="postComment()">Comment</button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="side">
+          <div class="prop">
+            <span class="plabel">Project</span>
+            @if (canEdit()) {
+              <select class="input" [ngModel]="task()!.projectId" (ngModelChange)="actions.move(task()!, $event)" aria-label="Project">
+                @for (p of store.writableProjects(); track p.id) { <option [ngValue]="p.id">{{ p.inbox ? 'Inbox' : p.name }}</option> }
+              </select>
+            } @else { <span>{{ project()?.name }}</span> }
+          </div>
+
+          <div class="prop">
+            <span class="plabel">Date</span>
+            <button #dateBtn type="button" class="pbtn" [class]="'pbtn ' + dueTone()" [disabled]="!canEdit()" (click)="picking.set(true)">
+              <app-icon [name]="task()!.recurrence ? 'repeat' : 'calendar'" [small]="true" />{{ dueText() }}
+            </button>
+            @if (task()!.recurrence) { <span class="hint">Repeats {{ task()!.recurrence }}</span> }
+          </div>
+
+          <div class="prop">
+            <span class="plabel">Priority</span>
+            <select class="input" [ngModel]="task()!.priority" (ngModelChange)="setPriority($event)" [disabled]="!canEdit()" aria-label="Priority">
+              @for (p of [1, 2, 3, 4]; track p) { <option [ngValue]="p">Priority {{ p }}</option> }
+            </select>
+          </div>
+
+          <div class="prop">
+            <span class="plabel">Labels</span>
+            <div class="chips">
+              @for (l of task()!.labels; track l.id) {
+                <span class="label-chip" [style.--lc]="'var(--proj-' + l.color + ')'"><app-icon name="tag" [small]="true" />{{ l.name }}</span>
+              }
+              @if (canEdit()) {
+                <app-dropdown align="right">
+                  <button trigger type="button" class="btn ghost sm"><app-icon name="plus" [small]="true" />{{ task()!.labels.length ? 'Edit' : 'Add' }}</button>
+                  @for (l of store.labels(); track l.id) {
+                    <button type="button" role="menuitemcheckbox" [attr.aria-checked]="hasLabel(l.name)" (click)="toggleLabel(l.name)">
+                      <app-icon name="tag" [small]="true" />{{ l.name }}
+                    </button>
+                  } @empty { <span class="hint pad-s">No labels yet. Type &#64;name in a task to make one.</span> }
+                </app-dropdown>
+              }
+            </div>
+          </div>
+
+          @if (members().length) {
+            <div class="prop">
+              <span class="plabel">Assignee</span>
+              <select class="input" [ngModel]="task()!.assignee?.id ?? null" (ngModelChange)="assign($event)" [disabled]="!canEdit()" aria-label="Assignee">
+                <option [ngValue]="null">Unassigned</option>
+                @for (m of members(); track m.userId) { <option [ngValue]="m.userId">{{ m.name }}{{ m.userId === me()?.id ? ' (you)' : '' }}</option> }
+              </select>
+            </div>
+          }
+
+          @if (task()!.createdBy; as by) {
+            <p class="hint created">Added by {{ by.id === me()?.id ? 'you' : by.name }} · {{ ago(task()!.createdAt) }}</p>
+          }
+        </div>
+      </div>
+    }
+  </aside>
+</div>
+
+@if (picking() && task()) {
+  <app-date-picker [anchor]="anchor()" [value]="due()" (picked)="picking.set(false); actions.reschedule([task()!], $event)" (closed)="picking.set(false)" />
+}
