@@ -1,0 +1,165 @@
+{
+  "info": {
+    "name": "Doable API",
+    "description": "Run \"Sign up\" (once) or \"Log in\" first: the token is saved automatically and used by every other request. Creating a project or task saves its id for the requests after it.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "email", "value": "postman@example.com" },
+    { "key": "password", "value": "password123" },
+    { "key": "token", "value": "" },
+    { "key": "projectId", "value": "" },
+    { "key": "taskId", "value": "" },
+    { "key": "today", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Sign up",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "if (pm.response.code === 201) pm.collectionVariables.set('token', pm.response.json().token);"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/signup",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman User\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}" }
+          }
+        },
+        {
+          "name": "Log in",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "if (pm.response.code === 200) pm.collectionVariables.set('token', pm.response.json().token);"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}" }
+          }
+        },
+        {
+          "name": "Me",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/auth/me" }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "List projects",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/projects" }
+        },
+        {
+          "name": "Create project",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "if (pm.response.code === 201) pm.collectionVariables.set('projectId', pm.response.json().id);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/projects",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Home\",\n  \"color\": \"clay\",\n  \"favorite\": true\n}" },
+            "description": "color is one of: moss, clay, sky, plum, sun, rose, slate, teal, lime, charcoal"
+          }
+        },
+        {
+          "name": "Update project",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/projects/{{projectId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Home & garden\",\n  \"color\": \"lime\",\n  \"favorite\": false\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        {
+          "name": "Create task",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+              "const d = new Date();",
+              "const pad = (n) => String(n).padStart(2, '0');",
+              "pm.collectionVariables.set('today', `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);"
+            ] } },
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) pm.collectionVariables.set('taskId', pm.response.json().id);"
+            ] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/tasks",
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Call the landlord\",\n  \"description\": \"About the heating\",\n  \"priority\": 1,\n  \"dueDate\": \"{{today}}\",\n  \"projectId\": {{projectId}}\n}" },
+            "description": "priority: 1 (most urgent) to 4 (none). projectId is optional: without it the task goes to the Inbox."
+          }
+        },
+        {
+          "name": "Today",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/tasks?view=today", "host": ["{{baseUrl}}"], "path": ["api", "tasks"], "query": [{ "key": "view", "value": "today" }, { "key": "date", "value": "2026-10-13", "disabled": true, "description": "Your local date; defaults to the server's date" }] } }
+        },
+        {
+          "name": "Inbox",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/tasks?view=inbox", "host": ["{{baseUrl}}"], "path": ["api", "tasks"], "query": [{ "key": "view", "value": "inbox" }] } }
+        },
+        {
+          "name": "Upcoming",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/tasks?view=upcoming", "host": ["{{baseUrl}}"], "path": ["api", "tasks"], "query": [{ "key": "view", "value": "upcoming" }] } }
+        },
+        {
+          "name": "Tasks in project",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/tasks?projectId={{projectId}}&completed=false", "host": ["{{baseUrl}}"], "path": ["api", "tasks"], "query": [{ "key": "projectId", "value": "{{projectId}}" }, { "key": "completed", "value": "false" }] } }
+        },
+        {
+          "name": "Update task",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/tasks/{{taskId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Call the landlord again\",\n  \"priority\": 2\n}" },
+            "description": "Send only the fields to change. Use \"clearDueDate\": true to remove the date."
+          }
+        },
+        {
+          "name": "Complete task",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/tasks/{{taskId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"completed\": true\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Clean up",
+      "item": [
+        {
+          "name": "Delete task",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/tasks/{{taskId}}" }
+        },
+        {
+          "name": "Delete project",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/projects/{{projectId}}", "description": "Also deletes the project's tasks. The Inbox can't be deleted." }
+        }
+      ]
+    }
+  ]
+}

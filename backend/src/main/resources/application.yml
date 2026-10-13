@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: doable
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/doable}
+    username: ${DB_USER:doable}
+    password: ${DB_PASSWORD:doable}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  mvc:
+    problemdetails:
+      enabled: true
+
+doable:
+  jwt:
+    secret: ${JWT_SECRET:change-me-to-a-long-random-string-of-32-plus-chars}
+    ttl-hours: ${JWT_TTL_HOURS:168}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
