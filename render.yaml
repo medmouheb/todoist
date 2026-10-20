@@ -1,0 +1,32 @@
+# Render Blueprint: in the Render dashboard choose New → Blueprint and pick this repository.
+# It creates one free web service from /Dockerfile. See deploy/DEPLOY-RENDER.md.
+services:
+  - type: web
+    name: doable
+    runtime: docker
+    plan: free
+    # Same region as the Neon database (AWS us-east-2, Ohio).
+    region: ohio
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    # Doesn't touch the database, so Render's checks don't keep the free Neon database awake.
+    healthCheckPath: /actuator/health/liveness
+    autoDeploy: true
+    envVars:
+      # Your Neon connection string: postgresql://user:password@host/neondb?sslmode=require
+      - key: DATABASE_URL
+        sync: false
+      # Render generates a random secret for signing logins.
+      - key: JWT_SECRET
+        generateValue: true
+      # Optional: Brevo API key and a sender you verified with Brevo, e.g. Doable <you@example.com>.
+      # Leave empty to run without email (password resets, login links and invites aren't sent).
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      # No SMTP on Render's free plan.
+      - key: MAIL_HOST
+        value: ""
+      - key: TZ
+        value: UTC

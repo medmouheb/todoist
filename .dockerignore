@@ -1,0 +1,9 @@
+.git/
+**/node_modules/
+**/dist/
+**/.angular/
+**/target/
+.env
+.env.prod
+backups/
+postman/

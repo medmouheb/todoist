@@ -2,9 +2,14 @@ spring:
   application:
     name: doable
   datasource:
+    # Or set DATABASE_URL=postgresql://user:password@host/db (see config/DatabaseUrlEnvironment)
     url: ${DB_URL:jdbc:postgresql://localhost:5432/doable}
     username: ${DB_USER:doable}
     password: ${DB_PASSWORD:doable}
+    hikari:
+      # Small pool: free database plans allow few connections.
+      maximum-pool-size: ${DB_POOL_SIZE:5}
+      minimum-idle: 1
   jpa:
     open-in-view: false
     hibernate:
@@ -29,14 +34,28 @@ spring:
     multipart:
       max-file-size: 2MB
 
+server:
+  # Hosts like Render tell the app which port to use through PORT.
+  port: ${PORT:8080}
+
 doable:
-  app-url: ${APP_URL:http://localhost:4200}
+  # Render sets RENDER_EXTERNAL_URL to the service's public address.
+  app-url: ${APP_URL:${RENDER_EXTERNAL_URL:http://localhost:4200}}
+  # With a Brevo API key, emails go through Brevo's HTTPS API instead of SMTP
+  # (Render's free plan blocks SMTP).
+  brevo-api-key: ${BREVO_API_KEY:}
   mail-from: ${MAIL_FROM:Doable <no-reply@doable.local>}
   jwt:
     secret: ${JWT_SECRET:change-me-to-a-long-random-string-of-32-plus-chars}
     ttl-hours: ${JWT_TTL_HOURS:168}
 
 management:
+  endpoint:
+    health:
+      # /actuator/health/liveness answers without touching the database, so health checks
+      # don't keep a sleeping free database awake.
+      probes:
+        enabled: true
   health:
     mail:
       enabled: false

@@ -162,4 +162,6 @@ Everything except `/api/auth/*` needs `Authorization: Bearer <token>`. Errors co
 
 ## Putting it online
 
-[deploy/DEPLOY.md](deploy/DEPLOY.md) walks through hosting it for free on an Oracle Cloud Always Free server: `compose.prod.yaml` runs the same containers behind Caddy (automatic HTTPS), with only ports 80 and 443 open, settings in `.env.prod` (see `.env.prod.example`), real email through an SMTP service, daily backups (`deploy/backup.sh`) and one-command updates (`deploy/update.sh`).
+**Render + Neon (free, no server to manage):** [deploy/DEPLOY-RENDER.md](deploy/DEPLOY-RENDER.md). The root `Dockerfile` builds frontend and backend into one container (Spring Boot serves the Angular files), `render.yaml` describes the Render service, the database comes from Neon through `DATABASE_URL`, and email goes through Brevo's API (`BREVO_API_KEY`) because Render's free plan blocks SMTP. The app sleeps after 15 idle minutes and takes about a minute to wake.
+
+**Your own server instead:** [deploy/DEPLOY.md](deploy/DEPLOY.md) walks through hosting it for free on an Oracle Cloud Always Free server: `compose.prod.yaml` runs the same containers behind Caddy (automatic HTTPS), with only ports 80 and 443 open, settings in `.env.prod` (see `.env.prod.example`), real email through an SMTP service, daily backups (`deploy/backup.sh`) and one-command updates (`deploy/update.sh`).

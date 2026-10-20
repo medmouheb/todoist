@@ -29,8 +29,10 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
-                        .requestMatchers("/actuator/health", "/error").permitAll()
-                        .anyRequest().authenticated())
+                        .requestMatchers("/actuator/health/**", "/error").permitAll()
+                        .requestMatchers("/api/**", "/actuator/**").authenticated()
+                        // Everything else is the Angular app's files (single-container image).
+                        .anyRequest().permitAll())
                 .oauth2ResourceServer(rs -> rs.jwt(Customizer.withDefaults()))
                 .build();
     }
