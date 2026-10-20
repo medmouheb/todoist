@@ -37,8 +37,8 @@ export class ShortcutsDialog {
   private store = inject(Store);
   protected readonly groups = [
     { name: 'Anywhere', keys: [['Q', 'Add a task'], ['G I', 'Go to Inbox'], ['G T', 'Go to Today'], ['G U', 'Go to Upcoming'],
-      ['G C', 'Go to Completed'], ['?', 'Show these shortcuts'], ['Esc', 'Close a dialog or panel']] },
-    { name: 'In a task list', keys: [['↑ ↓', 'Select the previous or next task (or K / J)'], ['Enter', 'Open the selected task'],
+      ['G C', 'Go to Completed'], ['G R', 'Go to the tree'], ['G H', 'Go to history'], ['?', 'Show these shortcuts'], ['Esc', 'Close a dialog or panel']] },
+    { name: 'In a task list', keys: [['/', 'Search'], ['↑ ↓', 'Select the previous or next task (or K / J)'], ['Enter', 'Open the selected task'],
       ['E', 'Edit the selected task'], ['T', 'Change its date'], ['1 2 3 4', 'Set its priority'],
       ['Ctrl Enter', 'Complete it (⌘ Enter on Mac)'], ['Del', 'Delete it']] },
     { name: 'Adding or editing', keys: [['Enter', 'Save'], ['Ctrl Enter', 'Save from the description'], ['Esc', 'Cancel']] },

@@ -1,6 +1,7 @@
 package com.doable.comment;
 
 import com.doable.common.CurrentUser;
+import com.doable.activity.ActivityService;
 import com.doable.common.NotFoundException;
 import com.doable.notification.NotificationService;
 import com.doable.project.ProjectAccess;
@@ -49,10 +50,12 @@ public class CommentController {
     private final ProjectMemberRepository members;
     private final UserRepository users;
     private final NotificationService notifications;
+    private final com.doable.activity.ActivityService activity;
 
     public CommentController(CommentRepository comments, TaskRepository tasks, ProjectAccess access,
                              ProjectMemberRepository members, UserRepository users,
-                             NotificationService notifications) {
+                             NotificationService notifications, com.doable.activity.ActivityService activity) {
+        this.activity = activity;
         this.comments = comments;
         this.tasks = tasks;
         this.access = access;
@@ -79,7 +82,14 @@ public class CommentController {
         Task t = task(userId, taskId);
         User author = users.findById(userId).orElseThrow();
         Comment c = comments.save(new Comment(taskId, userId, req.body().trim()));
-        notifications.commented(author, t, c.getBody(), mentions(c.getBody(), t.getProjectId()));
+        java.util.Set<Long> mentioned = mentions(c.getBody(), t.getProjectId());
+        notifications.commented(author, t, c.getBody(), mentioned);
+        java.util.Set<Long> told = new java.util.HashSet<>(mentioned);
+        if (t.getCreatedBy() != null) told.add(t.getCreatedBy());
+        if (t.getAssigneeId() != null) told.add(t.getAssigneeId());
+        String snippet = c.getBody().length() > 60 ? c.getBody().substring(0, 57) + "…" : c.getBody();
+        activity.record(userId, t.getProjectId(), t.getId(), t.getTitle(), ActivityService.Action.COMMENTED,
+                java.util.Map.<String, java.util.List<Object>>of("comment", java.util.Arrays.asList(null, snippet)), told);
         return toResponse(c, author);
     }
 

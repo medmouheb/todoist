@@ -33,7 +33,8 @@ public class UserController {
             @Pattern(regexp = "system|light|dark") String theme,
             @Pattern(regexp = "24h|12h") String timeFormat,
             @Min(0) @Max(1) Integer weekStart,
-            @Pattern(regexp = "today|inbox|upcoming") String homeView) {
+            @Pattern(regexp = "today|inbox|upcoming") String homeView,
+            @Size(max = 64) String timeZone) {
     }
 
     public record PasswordRequest(@NotBlank String currentPassword, @NotBlank @Size(min = 8, max = 100) String newPassword) {
@@ -64,6 +65,7 @@ public class UserController {
         if (req.timeFormat() != null) u.setTimeFormat(req.timeFormat());
         if (req.weekStart() != null) u.setWeekStart(req.weekStart().shortValue());
         if (req.homeView() != null) u.setHomeView(req.homeView());
+        if (req.timeZone() != null && isZone(req.timeZone())) u.setTimeZone(req.timeZone());
         return UserResponse.of(u);
     }
 
@@ -82,6 +84,15 @@ public class UserController {
     @GetMapping("/export")
     public Map<String, Object> exportData(@AuthenticationPrincipal Jwt jwt) {
         return export.export(CurrentUser.id(jwt));
+    }
+
+    private static boolean isZone(String zone) {
+        try {
+            java.time.ZoneId.of(zone);
+            return true;
+        } catch (java.time.DateTimeException e) {
+            return false;
+        }
     }
 
     private User user(Jwt jwt) {

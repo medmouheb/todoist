@@ -54,3 +54,25 @@ section.drop { background: var(--brand-tint); outline: 2px dashed var(--brand); 
 .empty p { margin: 0; }
 .skeleton { height: 44px; border-bottom: 1px solid var(--border); background: linear-gradient(90deg, var(--surface-sunken) 0 40%, transparent 40%) no-repeat 28px 50% / 60% 12px; }
 .hint.keys { margin-top: 24px; line-height: 26px; }
+
+.cat-mark { width: 14px; height: 14px; border-radius: 4px; align-self: center; }
+.count .hint { margin-left: 4px; }
+
+/* Foldable groups: the body animates its height via grid rows (0fr ↔ 1fr). */
+.fold { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; font: inherit; color: inherit; cursor: pointer; padding: 0; }
+.fold .n { font-weight: 400; font-size: 12px; color: var(--ink-subtle); }
+.chev { transition: transform .2s ease; }
+.chev.shut { transform: rotate(-90deg); }
+.gdot { width: 9px; height: 9px; border-radius: 3px; }
+.fold-body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .28s ease, opacity .28s ease; }
+.fold-body.shut { grid-template-rows: 0fr; opacity: 0; }
+.fold-inner { min-height: 0; padding-left: 24px; margin-left: -24px; }
+/* Clip only while folded, so menus and the drag grip are never cut off when open. */
+.fold-body.shut .fold-inner { overflow: hidden; }
+
+/* Drag to reorder */
+.dnd-list { display: block; }
+.dnd-list app-task-row.cdk-drag-placeholder { opacity: .35; }
+.cdk-drop-list-dragging app-task-row:not(.cdk-drag-placeholder) { transition: transform 200ms cubic-bezier(0, 0, .2, 1); }
+app-task-row.cdk-drag-animating { transition: transform 200ms cubic-bezier(0, 0, .2, 1); }
+@media (prefers-reduced-motion: reduce) { .fold-body, .chev { transition: none; } }

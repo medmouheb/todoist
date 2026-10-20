@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -40,11 +41,26 @@ public class TaskController {
                                    @RequestParam(required = false) String view,
                                    @RequestParam(required = false) LocalDate date,
                                    @RequestParam(required = false) Long projectId,
-                                   @RequestParam(required = false) Long parentId) {
+                                   @RequestParam(required = false) Long parentId,
+                                   @RequestParam(required = false) Long categoryId) {
         long user = CurrentUser.id(jwt);
         if (parentId != null) return tasks.subtasks(user, parentId);
+        if (categoryId != null) return tasks.byCategory(user, categoryId);
         if (projectId != null) return tasks.byProject(user, projectId);
         return tasks.view(user, view == null ? "inbox" : view, date == null ? LocalDate.now() : date);
+    }
+
+    /** Every open task and sub-task in your active projects, for the tree view. */
+    @GetMapping("/tree")
+    public List<TaskResponse> tree(@AuthenticationPrincipal Jwt jwt) {
+        return tasks.tree(CurrentUser.id(jwt));
+    }
+
+    /** Saves the order of sibling tasks after drag and drop. */
+    @PutMapping("/order")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void reorder(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody TaskDtos.OrderRequest req) {
+        tasks.reorder(CurrentUser.id(jwt), req.ids());
     }
 
     /** Completed tasks, newest first; all projects unless projectId is given. */

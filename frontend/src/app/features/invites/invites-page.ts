@@ -18,10 +18,11 @@ import { Store } from '../../core/store';
       } @else {
         @for (i of invites(); track i.id) {
           <div class="card">
-            <app-icon name="share" />
+            <span class="pmark" [style.background]="'var(--proj-' + (i.projectColor || 'charcoal') + ')'"><app-icon name="share" [small]="true" /></span>
             <div class="text">
-              <b>{{ i.projectName }}</b>
-              <span class="muted">{{ i.invitedBy ?? 'Someone' }} invited you as {{ roleName(i.role) }}</span>
+              <span class="muted">{{ i.invitedBy ?? 'Someone' }} invited you to the project</span>
+              <b class="pname">{{ i.projectName }}</b>
+              <span class="role">As <b>{{ roleName(i.role) }}</b> you’ll be able to {{ i.permissions }}.</span>
             </div>
             <button type="button" class="btn" (click)="answer(i, false)">Decline</button>
             <button type="button" class="btn primary" (click)="answer(i, true)">Join</button>
@@ -37,7 +38,10 @@ import { Store } from '../../core/store';
     @media (max-width: 760px) { .page { padding: 8px 16px; } }
     h1 { font-size: 26px; margin: 0 0 16px; }
     .card { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 8px; background: var(--surface); flex-wrap: wrap; }
-    .text { flex: 1; display: flex; flex-direction: column; min-width: 160px; }
+    .text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 200px; }
+    .pname { font-size: 16px; }
+    .role { font-size: 13px; color: var(--ink-muted); }
+    .pmark { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: #fff; flex: none; }
     .skeleton { height: 64px; border-radius: var(--radius-lg); background: var(--surface-sunken); }
   `,
 })

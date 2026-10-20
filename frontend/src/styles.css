@@ -157,3 +157,9 @@ select.input { padding: 0 6px; }
 .menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; width: 100%; }
 .menu .menu-cap { font-size: 11px; font-weight: 700; color: var(--ink-subtle); padding: 6px 10px 2px; text-transform: uppercase; letter-spacing: .04em; }
 .menu button[aria-checked="true"]::after { content: "✓"; margin-left: auto; color: var(--brand-ink); font-weight: 700; }
+
+/* A task being dragged (the CDK renders it at the end of <body>) */
+app-task-row.cdk-drag-preview, .proj.cdk-drag-preview {
+  display: block; background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); opacity: .95;
+}
+app-task-row.cdk-drag-preview .row { border-bottom: 0; padding-left: 8px; }

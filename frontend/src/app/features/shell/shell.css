@@ -26,7 +26,7 @@
 }
 .nav:hover { background: var(--surface-hover); }
 .nav.on { background: var(--surface-selected); color: var(--brand-ink); font-weight: 600; }
-.nav > span:not(.n):not(.hash):not(.addp) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav > span:not(.n):not(.hash):not(.addp):not(.cat-dot) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav .n { margin-left: auto; font-size: 12px; color: var(--ink-subtle); font-weight: 400; }
 .nav .hash { width: 18px; text-align: center; }
 .nav .shared { color: var(--ink-subtle); }
@@ -70,3 +70,13 @@
 .toast button { border: 0; background: transparent; color: inherit; font-weight: 700; cursor: pointer; padding: 4px 6px; border-radius: var(--radius-sm); }
 .toast button:hover { background: rgba(127, 127, 127, .25); }
 .toast .x { display: grid; place-items: center; }
+
+/* Drag and drop in the sidebar */
+.dnd { display: flex; flex-direction: column; gap: 1px; }
+.proj.cdk-drag-preview { background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
+.proj.cdk-drag-placeholder { opacity: .3; }
+.cdk-drop-list-dragging .proj:not(.cdk-drag-placeholder) { transition: transform 200ms cubic-bezier(0, 0, .2, 1); }
+.proj[cdkdrag] .nav { cursor: pointer; }
+.cdk-drag-animating { transition: transform 200ms cubic-bezier(0, 0, .2, 1); }
+.toggle-cap { display: flex; align-items: center; gap: 4px; border: 0; background: transparent; font: inherit; color: inherit; cursor: pointer; padding: 0; }
+.cat-dot { width: 10px; height: 10px; border-radius: 3px; margin: 0 4px; flex: none; }

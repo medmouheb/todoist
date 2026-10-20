@@ -36,7 +36,8 @@ public final class ProjectDtos {
     public record MemberResponse(Long userId, String name, String email, String initials, Role role) {
     }
 
-    public record InviteResponse(Long id, Long projectId, String projectName, String email, Role role,
+    public record InviteResponse(Long id, Long projectId, String projectName, String projectColor, String email, Role role,
+                                 String permissions,
                                  String invitedBy, Instant createdAt) {
     }
 

@@ -66,6 +66,24 @@ const NO_DUE: Due = { date: null, time: null, duration: null, recurrence: null }
           </div>
         </app-dropdown>
 
+        <app-dropdown>
+          <button trigger type="button" class="chip" [class.set]="!!categoryId()">
+            @if (category(); as c) { <span class="cdot" [style.background]="'var(--proj-' + c.color + ')'"></span>{{ c.name }} }
+            @else { <app-icon name="category" [small]="true" />Category }
+          </button>
+          <button type="button" (click)="categoryId.set(null)"><app-icon name="close" [small]="true" />No category</button>
+          @for (c of store.categories(); track c.id) {
+            <button type="button" role="menuitemradio" [attr.aria-checked]="categoryId() === c.id" (click)="categoryId.set(c.id)">
+              <span class="cdot" [style.background]="'var(--proj-' + c.color + ')'"></span>{{ c.name }}
+            </button>
+          } @empty { <span class="hint pad-s">No categories yet. Add one from the sidebar.</span> }
+        </app-dropdown>
+
+        <label class="chip dl" [class.set]="!!deadline()" title="Deadline">
+          <app-icon name="alarm" [small]="true" /><span class="sr-only">Deadline</span>
+          <input type="datetime-local" name="deadline" [ngModel]="deadline()" (ngModelChange)="deadline.set($event || '')" />
+        </label>
+
         @if (members().length) {
           <app-dropdown>
             <button trigger type="button" class="chip">
@@ -128,6 +146,12 @@ const NO_DUE: Due = { date: null, time: null, duration: null, recurrence: null }
     .bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--border); flex-wrap: wrap; }
     .proj { height: 32px; border: 0; background: var(--surface-sunken); border-radius: var(--radius-md); padding: 0 8px; font-size: 13px; max-width: 200px; }
     .grow { flex: 1; }
+    .cdot { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+    .chip.set { color: var(--ink); }
+    .chip.dl input { border: 0; background: transparent; font-size: 12px; color: inherit; width: 170px; }
+    .chip.dl input:focus { outline: none; }
+    .chip.dl:focus-within { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+    .pad-s { padding: 6px 10px; display: block; }
   `,
 })
 export class TaskEditor implements OnInit {
@@ -156,6 +180,10 @@ export class TaskEditor implements OnInit {
   protected readonly labels = signal<string[]>([]);
   /** 0 means "unassigned". */
   protected readonly assigneeId = signal<number | null>(null);
+  protected readonly categoryId = signal<number | null>(null);
+  /** Local date-time from the input, e.g. "2026-10-21T17:00"; empty for none. */
+  protected readonly deadline = signal('');
+  protected readonly category = computed(() => (this.categoryId() ? this.store.category(this.categoryId()!) ?? null : null));
   protected readonly members = signal<Member[]>([]);
   protected readonly pickingDate = signal(false);
   protected readonly busy = signal(false);
@@ -226,6 +254,8 @@ export class TaskEditor implements OnInit {
       this.projectId.set(t.projectId);
       this.labels.set(t.labels.map((l) => l.name));
       this.assigneeId.set(t.assignee?.id ?? null);
+      this.categoryId.set(t.category?.id ?? null);
+      this.deadline.set(t.deadline ? toLocalInput(t.deadline) : '');
     } else {
       this.due.set({ ...NO_DUE, date: this.defaultDueDate() });
       this.projectId.set(this.defaultProjectId());
@@ -290,6 +320,10 @@ export class TaskEditor implements OnInit {
           ...(this.effectiveProject() && this.effectiveProject() !== t.projectId ? { projectId: this.effectiveProject()! } : {}),
           labels: this.effectiveLabels(),
           ...(assignee ? { assigneeId: assignee } : { clearAssignee: true }),
+          // Only when changed: the task may carry a collaborator's category, which you can't set yourself.
+          ...(this.categoryId() === (t.category?.id ?? null) ? {}
+            : this.categoryId() ? { categoryId: this.categoryId()! } : { clearCategory: true }),
+          ...(this.deadline() ? { deadline: new Date(this.deadline()).toISOString() } : t.deadline ? { clearDeadline: true } : {}),
         })
       : this.api.createTask({
           title: p.title,
@@ -303,6 +337,8 @@ export class TaskEditor implements OnInit {
           parentId: this.parentId(),
           labels: this.effectiveLabels(),
           assigneeId: assignee || null,
+          categoryId: this.categoryId(),
+          deadline: this.deadline() ? new Date(this.deadline()).toISOString() : null,
         });
     req.subscribe({
       next: (saved) => {
@@ -314,6 +350,7 @@ export class TaskEditor implements OnInit {
           this.title.set('');
           this.description.set('');
           this.labels.set([]);
+          this.deadline.set('');
           this.dueTouched.set(false);
           this.due.set({ ...NO_DUE, date: this.defaultDueDate() });
           this.titleInput().nativeElement.focus();
@@ -326,4 +363,11 @@ export class TaskEditor implements OnInit {
       },
     });
   }
+}
+
+/** An ISO instant as the value a datetime-local input expects, in local time. */
+export function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }

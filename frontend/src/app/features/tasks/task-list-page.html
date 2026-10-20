@@ -3,6 +3,7 @@
     <div class="titlebar">
       <h1>
         @if (project(); as p) { @if (!p.inbox) { <span class="hash" [style.--pc]="'var(--proj-' + p.color + ')'">#</span> } }
+        @if (category(); as c) { <span class="cat-mark" [style.background]="'var(--proj-' + c.color + ')'"></span> }
         {{ heading() }}
       </h1>
       @if (project(); as p) {
@@ -21,9 +22,16 @@
           <app-project-menu [project]="p" />
         </div>
       }
+      @if (category(); as c) {
+        <button type="button" class="btn ghost sm" (click)="store.editingCategory.set(c)"><app-icon name="edit" [small]="true" />Edit</button>
+      }
     </div>
     @if (loaded()) {
-      <div class="count"><app-icon name="done" [small]="true" />{{ total() }} {{ total() === 1 ? 'task' : 'tasks' }}</div>
+      <div class="count">
+        <app-icon name="done" [small]="true" />
+        @if (filtering()) { {{ filtered().length }} of {{ total() }} tasks } @else { {{ total() }} {{ total() === 1 ? 'task' : 'tasks' }} }
+        @if (manualOrder() && total() > 1) { <span class="hint">· drag the grip to reorder</span> }
+      </div>
     }
   </header>
 
@@ -40,7 +48,10 @@
     <div class="banner"><app-icon name="person" /><span>You’re a guest here: you can comment and complete tasks assigned to you.</span></div>
   }
 
-  @if (view() === 'upcoming') {
+  <app-task-toolbar [(filter)]="filter" [(groupBy)]="groupBy" [(open)]="filtersOpen" [showProjectGroup]="mixesProjects()"
+                    [noneLabel]="isDateView() ? 'Days' : 'None'" />
+
+  @if (view() === 'upcoming' && groupBy() === 'none') {
     <div class="weekbar">
       <b>{{ weekLabel() }}</b>
       <span class="wnav">
@@ -71,36 +82,59 @@
                (dragover)="onDragOver($event, s.key, s.date)" (dragleave)="dropTarget.set(null)" (drop)="onDrop($event, s.date)">
         @if (s.name) {
           <h2 class="sec" [class.overdue]="s.tone === 'overdue'">
-            <span>{{ s.name }}</span>
+            @if (s.collapsible) {
+              <button type="button" class="fold" [attr.aria-expanded]="!collapsed().has(s.key)" (click)="toggleSection(s.key)">
+                <app-icon name="chevron" [small]="true" class="chev" [class.shut]="collapsed().has(s.key)" />
+                @if (s.color) { <span class="gdot" [style.background]="'var(--proj-' + s.color + ')'"></span> }
+                <span>{{ s.name }}</span><span class="n">{{ s.tasks.length }}</span>
+              </button>
+            } @else {
+              <span>{{ s.name }}</span>
+            }
             @if (s.tone === 'overdue' && canAdd()) {
               <button #rescheduleBtn type="button" class="resched" (click)="rescheduling.set(true)">Reschedule</button>
             }
           </h2>
         }
-        @for (t of s.tasks; track t.id) {
-          <app-task-row [task]="t" [showProject]="mixesProjects()" [selected]="selectedId() === t.id" (click)="selectedId.set(t.id)" />
-        }
-        @if (s.tone !== 'overdue' && canAdd()) {
-          @if (adding() === s.key) {
-            <div class="adding">
-              <app-task-editor [defaultProjectId]="projectId()" [defaultDueDate]="s.date ?? null" (cancelled)="adding.set(null)" />
-            </div>
-          } @else {
-            <button class="add" type="button" (click)="adding.set(s.key)">
-              <span class="plus"><app-icon name="plus" [small]="true" /></span>Add task
-            </button>
-          }
-        }
+        <div class="fold-body" [class.shut]="collapsed().has(s.key)">
+          <div class="fold-inner">
+            @if (manualOrder() && s.key === 'all') {
+              <div class="dnd-list" cdkDropList [cdkDropListData]="s.tasks" (cdkDropListDropped)="reorder($event)" cdkDropListLockAxis="y">
+                @for (t of s.tasks; track t.id) {
+                  <app-task-row cdkDrag [cdkDragData]="t" [task]="t" [reorderable]="true" [showProject]="false"
+                                [selected]="selectedId() === t.id" (click)="selectedId.set(t.id)" />
+                }
+              </div>
+            } @else {
+              @for (t of s.tasks; track t.id) {
+                <app-task-row [task]="t" [showProject]="mixesProjects()" [nativeDrag]="isDateView()"
+                              [selected]="selectedId() === t.id" (click)="selectedId.set(t.id)" />
+              }
+            }
+            @if (s.tone !== 'overdue' && canAdd() && !s.collapsible) {
+              @if (adding() === s.key) {
+                <div class="adding">
+                  <app-task-editor [defaultProjectId]="projectId()" [defaultDueDate]="s.date ?? null" (cancelled)="adding.set(null)" />
+                </div>
+              } @else {
+                <button class="add" type="button" (click)="adding.set(s.key)">
+                  <span class="plus"><app-icon name="plus" [small]="true" /></span>Add task
+                </button>
+              }
+            }
+          </div>
+        </div>
       </section>
     }
-    @if (total() === 0 && adding() === null && view() !== 'upcoming') {
+    @if (filtered().length === 0 && adding() === null && (view() !== 'upcoming' || filtering())) {
       <div class="empty">
         <p class="big">{{ emptyTitle() }}</p>
         <p class="muted">{{ emptyText() }}</p>
       </div>
     }
+    @if (paged()) { <app-pager [total]="filtered().length" [(page)]="page" /> }
     <p class="hint keys">
-      <span class="kbd">↑</span> <span class="kbd">↓</span> select · <span class="kbd">Enter</span> open ·
+      <span class="kbd">/</span> search · <span class="kbd">↑</span> <span class="kbd">↓</span> select · <span class="kbd">Enter</span> open ·
       <span class="kbd">E</span> edit · <span class="kbd">T</span> date · <span class="kbd">1</span>–<span class="kbd">4</span> priority ·
       <span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> complete · <span class="kbd">?</span> all shortcuts
     </p>

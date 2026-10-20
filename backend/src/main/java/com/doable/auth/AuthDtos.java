@@ -30,10 +30,10 @@ public final class AuthDtos {
     }
 
     public record UserResponse(Long id, String email, String name, String initials, String theme,
-                               String timeFormat, int weekStart, String homeView) {
+                               String timeFormat, int weekStart, String homeView, String timeZone) {
         public static UserResponse of(User u) {
             return new UserResponse(u.getId(), u.getEmail(), u.getName(), User.initials(u.getName()), u.getTheme(),
-                    u.getTimeFormat(), u.getWeekStart(), u.getHomeView());
+                    u.getTimeFormat(), u.getWeekStart(), u.getHomeView(), u.getTimeZone());
         }
     }
 

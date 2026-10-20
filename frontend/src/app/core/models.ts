@@ -12,6 +12,7 @@ export interface User {
   /** 1 = Monday, 0 = Sunday */
   weekStart: 0 | 1;
   homeView: HomeView;
+  timeZone: string;
 }
 
 export interface AuthResponse {
@@ -75,6 +76,19 @@ export interface Task {
   subtaskCount: number;
   subtaskDone: number;
   commentCount: number;
+  category: CategoryRef | null;
+  /** ISO instant */
+  deadline: string | null;
+}
+
+export interface CategoryRef {
+  id: number;
+  name: string;
+  color: ProjectColor;
+}
+
+export interface Category extends CategoryRef {
+  position: number;
 }
 
 /** Date, time, duration and repeat travel together through the date picker. */
@@ -97,6 +111,8 @@ export interface NewTask {
   parentId?: number | null;
   assigneeId?: number | null;
   labels?: string[];
+  categoryId?: number | null;
+  deadline?: string | null;
 }
 
 export interface TaskChanges {
@@ -117,6 +133,10 @@ export interface TaskChanges {
   labels?: string[];
   completed?: boolean;
   today?: string;
+  categoryId?: number;
+  clearCategory?: boolean;
+  deadline?: string;
+  clearDeadline?: boolean;
 }
 
 export type TaskView = 'inbox' | 'today' | 'upcoming';
@@ -133,8 +153,11 @@ export interface Invite {
   id: number;
   projectId: number;
   projectName: string;
+  projectColor: ProjectColor;
   email: string;
   role: Role;
+  /** What the role allows, in plain words. */
+  permissions: string;
   invitedBy: string | null;
   createdAt: string;
 }
@@ -155,7 +178,8 @@ export interface Comment {
   createdAt: string;
 }
 
-export type NotificationType = 'INVITE' | 'INVITE_ACCEPTED' | 'INVITE_DECLINED' | 'ASSIGNED' | 'COMMENT' | 'MENTION';
+export type NotificationType = 'INVITE' | 'INVITE_ACCEPTED' | 'INVITE_DECLINED' | 'ASSIGNED' | 'COMMENT' | 'MENTION'
+  | 'ACTIVITY' | 'REMINDER' | 'DEADLINE_SOON' | 'DEADLINE_MISSED';
 
 export interface AppNotification {
   id: number;
@@ -177,4 +201,26 @@ export interface Settings {
   timeFormat?: TimeFormat;
   weekStart?: 0 | 1;
   homeView?: HomeView;
+  timeZone?: string;
+}
+
+export interface HistoryEntry {
+  id: number;
+  action: string;
+  actorId: number | null;
+  actorName: string;
+  actorInitials: string;
+  projectId: number;
+  projectName: string | null;
+  projectColor: ProjectColor | null;
+  taskId: number | null;
+  taskTitle: string | null;
+  /** field → [before, after] */
+  changes: Record<string, [unknown, unknown]> | null;
+  createdAt: string;
+}
+
+export interface HistoryPage {
+  items: HistoryEntry[];
+  nextBefore: number | null;
 }

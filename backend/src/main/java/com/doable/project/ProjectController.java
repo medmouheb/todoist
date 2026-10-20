@@ -4,6 +4,7 @@ import com.doable.common.CurrentUser;
 import com.doable.project.ProjectDtos.ProjectRequest;
 import com.doable.project.ProjectDtos.ProjectResponse;
 import com.doable.task.ProjectToolsService;
+import com.doable.task.TaskDtos;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,13 @@ public class ProjectController {
     @GetMapping
     public List<ProjectResponse> list(@AuthenticationPrincipal Jwt jwt) {
         return projects.list(CurrentUser.id(jwt));
+    }
+
+    /** Saves your sidebar order after drag and drop. */
+    @PutMapping("/order")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void reorder(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody TaskDtos.OrderRequest req) {
+        projects.reorder(CurrentUser.id(jwt), req.ids());
     }
 
     @GetMapping("/{id}")

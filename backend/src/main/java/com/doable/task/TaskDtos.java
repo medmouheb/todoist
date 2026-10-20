@@ -3,6 +3,7 @@ package com.doable.task;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -16,7 +17,7 @@ public final class TaskDtos {
 
     /**
      * projectId may be null: the task then goes to the Inbox (or the parent's project for a sub-task).
-     * labels are names; unknown ones are created.
+     * labels are names; unknown ones are created. categoryId must be one of your categories.
      */
     public record CreateTaskRequest(
             @NotBlank @Size(max = 500) String title,
@@ -29,12 +30,15 @@ public final class TaskDtos {
             Long projectId,
             Long parentId,
             Long assigneeId,
-            List<@Size(max = 60) String> labels) {
+            List<@Size(max = 60) String> labels,
+            Long categoryId,
+            Instant deadline) {
     }
 
     /**
      * Every field is optional; only the ones sent are changed.
-     * clearDueDate removes the date with its time, duration and repeat; clearAssignee unassigns.
+     * clearDueDate removes the date with its time, duration and repeat; clearAssignee unassigns;
+     * clearCategory and clearDeadline remove those.
      * today is the user's local date, used to move a repeating task to its next date when completed.
      */
     public record UpdateTaskRequest(
@@ -54,10 +58,21 @@ public final class TaskDtos {
             Boolean clearAssignee,
             List<@Size(max = 60) String> labels,
             Boolean completed,
-            LocalDate today) {
+            LocalDate today,
+            Long categoryId,
+            Boolean clearCategory,
+            Instant deadline,
+            Boolean clearDeadline) {
+    }
+
+    /** Task ids in their new order; all must be siblings (same project and same parent). */
+    public record OrderRequest(@NotEmpty @Size(max = 1000) List<Long> ids) {
     }
 
     public record LabelRef(Long id, String name, String color) {
+    }
+
+    public record CategoryRef(Long id, String name, String color) {
     }
 
     public record PersonRef(Long id, String name, String initials) {
@@ -67,6 +82,7 @@ public final class TaskDtos {
                                short priority, LocalDate dueDate, LocalTime dueTime, Integer durationMinutes,
                                String recurrence, boolean completed, Instant completedAt, int position,
                                Instant createdAt, PersonRef createdBy, PersonRef assignee, List<LabelRef> labels,
-                               int subtaskCount, int subtaskDone, int commentCount) {
+                               int subtaskCount, int subtaskDone, int commentCount,
+                               CategoryRef category, Instant deadline) {
     }
 }

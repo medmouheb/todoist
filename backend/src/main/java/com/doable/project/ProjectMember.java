@@ -30,6 +30,10 @@ public class ProjectMember {
     @Column(nullable = false)
     private boolean favorite;
 
+    /** Where this project sits in this member's sidebar. */
+    @Column(nullable = false)
+    private int position;
+
     @Column(name = "joined_at", nullable = false, updatable = false)
     private Instant joinedAt = Instant.now();
 
@@ -47,5 +51,7 @@ public class ProjectMember {
     public void setRole(Role role) { this.role = role; }
     public boolean isFavorite() { return favorite; }
     public void setFavorite(boolean favorite) { this.favorite = favorite; }
+    public int getPosition() { return position; }
+    public void setPosition(int position) { this.position = position; }
     public Instant getJoinedAt() { return joinedAt; }
 }

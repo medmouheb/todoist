@@ -2,8 +2,8 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
-  AppNotification, AuthResponse, Comment, Invite, LabelRef, NewTask, Project, ProjectColor, Role, Settings, Sharing,
-  Task, TaskChanges, TaskView, User,
+  AppNotification, AuthResponse, Category, Comment, HistoryPage, Invite, LabelRef, NewTask, Project, ProjectColor, Role,
+  Settings, Sharing, Task, TaskChanges, TaskView, User,
 } from './models';
 import { todayIso } from './dates';
 
@@ -60,6 +60,38 @@ export class Api {
     return this.http.post<{ added: number }>(`/api/projects/${id}/import`, csv, { headers: { 'Content-Type': 'text/csv' } });
   }
 
+  reorderProjects(ids: number[]): Observable<void> {
+    return this.http.put<void>('/api/projects/order', { ids });
+  }
+
+  // ---- categories ----
+  categories(): Observable<Category[]> {
+    return this.http.get<Category[]>('/api/categories');
+  }
+  createCategory(body: { name: string; color: ProjectColor }): Observable<Category> {
+    return this.http.post<Category>('/api/categories', body);
+  }
+  updateCategory(id: number, body: { name: string; color: ProjectColor }): Observable<Category> {
+    return this.http.put<Category>(`/api/categories/${id}`, body);
+  }
+  deleteCategory(id: number): Observable<void> {
+    return this.http.delete<void>(`/api/categories/${id}`);
+  }
+  reorderCategories(ids: number[]): Observable<void> {
+    return this.http.put<void>('/api/categories/order', { ids });
+  }
+
+  // ---- history ----
+  /** Newest first; pass the previous page's nextBefore to get the next one. */
+  history(opts: { projectId?: number; taskId?: number; before?: number | null; limit?: number }): Observable<HistoryPage> {
+    const params: Record<string, number> = {};
+    if (opts.projectId) params['projectId'] = opts.projectId;
+    if (opts.taskId) params['taskId'] = opts.taskId;
+    if (opts.before) params['before'] = opts.before;
+    params['limit'] = opts.limit ?? 30;
+    return this.http.get<HistoryPage>('/api/history', { params });
+  }
+
   // ---- sharing ----
   sharing(projectId: number): Observable<Sharing> {
     return this.http.get<Sharing>(`/api/projects/${projectId}/sharing`);
@@ -109,6 +141,17 @@ export class Api {
   }
   subtasks(parentId: number): Observable<Task[]> {
     return this.http.get<Task[]>('/api/tasks', { params: { parentId } });
+  }
+  categoryTasks(categoryId: number): Observable<Task[]> {
+    return this.http.get<Task[]>('/api/tasks', { params: { categoryId } });
+  }
+  /** Every open task and sub-task in active projects. */
+  treeTasks(): Observable<Task[]> {
+    return this.http.get<Task[]>('/api/tasks/tree');
+  }
+  /** Saves a new order for sibling tasks. */
+  reorderTasks(ids: number[]): Observable<void> {
+    return this.http.put<void>('/api/tasks/order', { ids });
   }
   completedTasks(projectId?: number): Observable<Task[]> {
     return this.http.get<Task[]>('/api/tasks/completed', { params: projectId ? { projectId } : {} });

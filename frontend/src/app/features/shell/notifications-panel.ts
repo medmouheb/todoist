@@ -68,6 +68,9 @@ export class NotificationsPanel {
     switch (n.type) {
       case 'INVITE': case 'INVITE_ACCEPTED': case 'INVITE_DECLINED': return 'share';
       case 'ASSIGNED': return 'person';
+      case 'REMINDER': return 'clock';
+      case 'DEADLINE_SOON': case 'DEADLINE_MISSED': return 'alarm';
+      case 'ACTIVITY': return 'history';
       default: return 'comment';
     }
   }

@@ -1,12 +1,14 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, map, of, tap } from 'rxjs';
 import { Api } from './api';
-import { AppNotification, LabelRef, Member, Project } from './models';
+import { AppNotification, Category, LabelRef, Member, Project } from './models';
 
 export interface Toast {
   id: number;
   message: string;
   undo?: () => void;
+  /** Optional "Open" action, e.g. for a live notification about a task. */
+  open?: () => void;
 }
 
 export interface ConfirmRequest {
@@ -32,6 +34,7 @@ export class Store {
   /** Projects a task can be added to or moved into. */
   readonly writableProjects = computed(() => this.projects().filter((p) => !p.archived && p.role !== 'GUEST'));
   readonly labels = signal<LabelRef[]>([]);
+  readonly categories = signal<Category[]>([]);
 
   readonly notifications = signal<AppNotification[]>([]);
   readonly unread = signal(0);
@@ -49,6 +52,8 @@ export class Store {
   readonly editingProject = signal<Project | 'new' | null>(null);
   readonly settingsOpen = signal(false);
   readonly shortcutsOpen = signal(false);
+  /** The category being edited in the category dialog, or 'new'. */
+  readonly editingCategory = signal<Category | 'new' | null>(null);
 
   loadProjects(): void {
     this.api.projects().subscribe((ps) => this.projects.set(ps));
@@ -56,6 +61,39 @@ export class Store {
 
   loadLabels(): void {
     this.api.labels().subscribe((ls) => this.labels.set(ls));
+  }
+
+  loadCategories(): void {
+    this.api.categories().subscribe((cs) => this.categories.set(cs));
+  }
+
+  category(id: number): Category | undefined {
+    return this.categories().find((c) => c.id === id);
+  }
+
+  /** Notifications already shown as a toast ("id:message", so a merged update can show again). */
+  private toasted = new Set<string>();
+
+  /** Shows a notification as a toast once, with an Open action for task-related ones. */
+  toastNotification(n: { id: number; message: string; taskId: number | null }): void {
+    const key = n.id + ':' + n.message;
+    if (this.toasted.has(key)) return;
+    this.toasted.add(key);
+    this.toast(n.message, undefined, n.taskId ? () => this.openTaskId.set(n.taskId) : undefined);
+  }
+
+  /**
+   * After the live connection (re)opens: refresh the bell, and toast the newest unread notification
+   * from the last 2 minutes, which may have been pushed while the connection was down.
+   */
+  catchUp(): void {
+    this.api.notifications().subscribe((n) => {
+      if (n.unread > this.unread()) this.loadProjects();
+      this.notifications.set(n.items);
+      this.unread.set(n.unread);
+      const recent = n.items.find((x) => !x.read && x.type !== 'INVITE' && Date.now() - new Date(x.createdAt).getTime() < 120_000);
+      if (recent) this.toastNotification(recent);
+    });
   }
 
   loadNotifications(): void {
@@ -93,10 +131,10 @@ export class Store {
     this.loadLabels();
   }
 
-  toast(message: string, undo?: () => void): void {
-    const t: Toast = { id: ++this.toastSeq, message, undo };
+  toast(message: string, undo?: () => void, open?: () => void): void {
+    const t: Toast = { id: ++this.toastSeq, message, undo, open };
     this.toasts.set([t]); // one at a time, newest wins
-    setTimeout(() => this.dismiss(t.id), undo ? 7000 : 4000);
+    setTimeout(() => this.dismiss(t.id), undo || open ? 7000 : 4000);
   }
 
   dismiss(id: number): void {

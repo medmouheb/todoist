@@ -1,5 +1,7 @@
 package com.doable.project;
 
+import com.doable.activity.ActivityService;
+import com.doable.activity.ActivityService.Action;
 import com.doable.common.NotFoundException;
 import com.doable.project.ProjectDtos.ProjectRequest;
 import com.doable.project.ProjectDtos.ProjectResponse;
@@ -21,13 +23,15 @@ public class ProjectService {
     private final ProjectMemberRepository members;
     private final ProjectAccess access;
     private final TaskRepository tasks;
+    private final ActivityService activity;
 
     public ProjectService(ProjectRepository projects, ProjectMemberRepository members, ProjectAccess access,
-                          TaskRepository tasks) {
+                          TaskRepository tasks, ActivityService activity) {
         this.projects = projects;
         this.members = members;
         this.access = access;
         this.tasks = tasks;
+        this.activity = activity;
     }
 
     @Transactional
@@ -71,7 +75,9 @@ public class ProjectService {
                 req.color() == null ? "charcoal" : req.color(), false, projects.countByOwnerId(userId)));
         ProjectMember m = new ProjectMember(p.getId(), userId, Role.ADMIN);
         m.setFavorite(Boolean.TRUE.equals(req.favorite()));
+        m.setPosition(members.forUser(userId).size());
         members.save(m);
+        activity.record(userId, p.getId(), null, null, Action.PROJECT_CREATED, null);
         return get(userId, p.getId());
     }
 
@@ -88,11 +94,34 @@ public class ProjectService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The Inbox can't be renamed or archived.");
             }
         }
+        Map<String, Object> before = Map.of("name", p.getName(), "color", p.getColor());
         if (renaming) p.setName(req.name().trim());
         if (recoloring) p.setColor(req.color());
-        if (archiving) p.setArchived(req.archived());
+        if (archiving) {
+            p.setArchived(req.archived());
+            activity.record(userId, id, null, null, req.archived() ? Action.PROJECT_ARCHIVED : Action.PROJECT_UNARCHIVED, null);
+        }
+        if (renaming || recoloring) {
+            activity.record(userId, id, null, null, Action.PROJECT_UPDATED,
+                    ActivityService.diff(before, Map.of("name", p.getName(), "color", p.getColor())));
+        }
         if (req.favorite() != null) me.setFavorite(req.favorite());
         return get(userId, id);
+    }
+
+    /** Sets this person's sidebar order; ids not listed keep their place after the listed ones. */
+    @Transactional
+    public void reorder(Long userId, List<Long> projectIds) {
+        Map<Long, ProjectMember> mine = members.forUser(userId).stream()
+                .collect(Collectors.toMap(ProjectMember::getProjectId, Function.identity()));
+        int pos = 0;
+        for (Long id : projectIds) {
+            ProjectMember m = mine.remove(id);
+            if (m != null) m.setPosition(pos++);
+        }
+        for (ProjectMember m : mine.values().stream().sorted(Comparator.comparing(ProjectMember::getPosition)).toList()) {
+            m.setPosition(pos++);
+        }
     }
 
     @Transactional
@@ -107,7 +136,7 @@ public class ProjectService {
     private static ProjectResponse toResponse(Project p, ProjectMember m, Map<Long, Long> open,
                                               Map<Long, Long> memberCounts) {
         return new ProjectResponse(p.getId(), p.getName(), p.getColor(), m.isFavorite(), p.isInbox(), p.isArchived(),
-                p.getPosition(), open.getOrDefault(p.getId(), 0L), m.getRole(),
+                m.getPosition(), open.getOrDefault(p.getId(), 0L), m.getRole(),
                 memberCounts.getOrDefault(p.getId(), 1L));
     }
 }

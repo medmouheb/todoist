@@ -100,7 +100,19 @@ Built from the [feature review](https://claude.ai/artifact/71rAh3mkEWYvSjAvesceH
 - Assign tasks to people in the project; a project's Today and Upcoming show tasks that are yours or unassigned
 - Notifications (bell, checked every 30 seconds): invites with Join/Decline, assignments, comments, mentions
 
-Not built yet: sections, board and calendar layouts, search, saved filters, deadlines, reminders, activity log, goals, onboarding, the phone app.
+**Organizing (v0.3)**
+- Drag and drop to reorder projects (your own sidebar order), tasks in a project or the Inbox, and sub-tasks (by the grip on the left)
+- Categories (Work, Errands…): one per task, a page per category, and grouping by category everywhere
+- Tree page: project → task → sub-task (or category / label / priority → …) as an animated, foldable tree with search
+- Every list has search (`/`), filters (priority, date, category, label, assignee) and "group by"; more than 10 matching tasks are split into pages
+- Deadlines on tasks and sub-tasks, separate from the planned date
+
+**Live updates and history (v0.3)**
+- Notifications arrive instantly over a live connection (Server-Sent Events): a timed task starting in 15 minutes, a deadline less than a day away, a deadline that passed with the task unfinished, and, in shared projects, every change someone else makes. Open lists refresh by themselves.
+- History of every change and delete, by project, by task and across all projects. It stores only the fields that changed, merges quick edits in a row into one entry, and pages by id so it stays fast. Deleted tasks can be restored from it for a week.
+- Invitations show the project and exactly what the role allows
+
+Not built yet: sections, board and calendar layouts, saved filters, goals, onboarding, the phone app.
 
 ## Layout
 
@@ -158,6 +170,11 @@ Everything except `/api/auth/*` needs `Authorization: Bearer <token>`. Errors co
 | DELETE | `/api/comments/{id}` | your own comments |
 | GET, POST, PUT, DELETE | `/api/labels[/{id}]` | labels are also created by using them |
 | GET | `/api/notifications` | `{unread, items}` |
+| GET | `/api/events?access_token=…` | live event stream (`notification`, `changed`) |
+| PUT | `/api/projects/order`, `/api/tasks/order`, `/api/categories/order` | `{ids}` in the new order (tasks: siblings only) |
+| GET | `/api/tasks/tree`, `/api/tasks?categoryId=3` | every open task and sub-task / a category's tasks |
+| GET, POST, PUT, DELETE | `/api/categories[/{id}]` | `{name, color}` |
+| GET | `/api/history?projectId=3\|taskId=7&before=…` | newest first; pass `nextBefore` for the next page |
 | POST | `/api/notifications/{id}/read`, `/read-all` | |
 
 ## Putting it online

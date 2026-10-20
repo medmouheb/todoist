@@ -57,6 +57,21 @@ public class Task {
     @Column(name = "duration_minutes")
     private Integer durationMinutes;
 
+    /** One of the categories of whoever set it; shown to everyone who can see the task. */
+    @Column(name = "category_id")
+    private Long categoryId;
+
+    /** A hard deadline, separate from the planned date. */
+    private Instant deadline;
+
+    // When each automatic notification went out, so it's sent once. Cleared when the date changes.
+    @Column(name = "reminder_sent_at")
+    private Instant reminderSentAt;
+    @Column(name = "deadline_warned_at")
+    private Instant deadlineWarnedAt;
+    @Column(name = "deadline_missed_at")
+    private Instant deadlineMissedAt;
+
     /** e.g. "every monday"; see {@link Recurrence}. */
     private String recurrence;
 
@@ -125,5 +140,15 @@ public class Task {
     public Instant getDeletedAt() { return deletedAt; }
     public void setDeletedAt(Instant deletedAt) { this.deletedAt = deletedAt; }
     public Instant getCreatedAt() { return createdAt; }
+    public Long getCategoryId() { return categoryId; }
+    public void setCategoryId(Long categoryId) { this.categoryId = categoryId; }
+    public Instant getDeadline() { return deadline; }
+    public void setDeadline(Instant deadline) { this.deadline = deadline; }
+    public Instant getReminderSentAt() { return reminderSentAt; }
+    public void setReminderSentAt(Instant reminderSentAt) { this.reminderSentAt = reminderSentAt; }
+    public Instant getDeadlineWarnedAt() { return deadlineWarnedAt; }
+    public void setDeadlineWarnedAt(Instant deadlineWarnedAt) { this.deadlineWarnedAt = deadlineWarnedAt; }
+    public Instant getDeadlineMissedAt() { return deadlineMissedAt; }
+    public void setDeadlineMissedAt(Instant deadlineMissedAt) { this.deadlineMissedAt = deadlineMissedAt; }
     public Set<Label> getLabels() { return labels; }
 }

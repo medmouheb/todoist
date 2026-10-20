@@ -37,6 +37,24 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     List<Task> findByProjectIdInAndDeletedAtIsNullOrderById(Collection<Long> projectIds);
 
+    /** Every open task (sub-tasks too) in the given projects, for the tree. */
+    @Query("select t from Task t where t.projectId in :projectIds and t.completed = false and t.deletedAt is null")
+    List<Task> openIn(Collection<Long> projectIds);
+
+    @Query("select t from Task t where t.projectId in :projectIds and t.categoryId = :categoryId "
+            + "and t.completed = false and t.deletedAt is null")
+    List<Task> openInCategory(Collection<Long> projectIds, Long categoryId);
+
+    /** Timed tasks on or around the given days that haven't had their reminder yet. */
+    @Query("select t from Task t where t.completed = false and t.deletedAt is null and t.dueTime is not null "
+            + "and t.reminderSentAt is null and t.dueDate between :from and :to")
+    List<Task> needingReminder(LocalDate from, LocalDate to);
+
+    /** Deadlines within the next day not yet warned about, or already passed and not yet reported. */
+    @Query("select t from Task t where t.completed = false and t.deletedAt is null and t.deadline is not null "
+            + "and ((t.deadlineWarnedAt is null and t.deadline <= :soon) or (t.deadlineMissedAt is null and t.deadline <= :now))")
+    List<Task> needingDeadlineNotice(Instant now, Instant soon);
+
     @Query("select t from Task t where t.parentId = :parentId and t.deletedAt is null")
     List<Task> children(Long parentId);
 

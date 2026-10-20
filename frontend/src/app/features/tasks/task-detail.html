@@ -38,7 +38,11 @@
             <h3><app-icon name="subtask" [small]="true" />Sub-tasks
               @if (task()!.subtaskCount) { <span class="muted">{{ task()!.subtaskDone }}/{{ task()!.subtaskCount }}</span> }
             </h3>
-            @for (s of subtasks(); track s.id) { <app-task-row [task]="s" /> }
+            <div class="dnd-list" cdkDropList [cdkDropListData]="subtasks()" (cdkDropListDropped)="reorderSubtasks($event)" cdkDropListLockAxis="y">
+              @for (s of subtasks(); track s.id) {
+                <app-task-row cdkDrag [cdkDragData]="s" [cdkDragDisabled]="!canEdit() || s.completed" [task]="s" [reorderable]="canEdit() && !s.completed" />
+              }
+            </div>
             @if (canEdit()) {
               @if (addingSub()) {
                 <div class="adding"><app-task-editor [parentId]="task()!.id" [defaultProjectId]="task()!.projectId" (cancelled)="addingSub.set(false)" /></div>
@@ -74,6 +78,23 @@
                 </div>
               </div>
             </div>
+          </section>
+          <section class="history">
+            <h3><app-icon name="history" [small]="true" />History</h3>
+            @for (h of history(); track h.id) {
+              <div class="hrow">
+                <span class="av sm" [style.--ac]="color(h.actorId)">{{ h.actorInitials }}</span>
+                <div class="htext">
+                  <span><b>{{ h.actorName }}</b> {{ verb(h.action) }}</span>
+                  @for (c of changeList(h); track c.field) {
+                    <span class="hchange"><span class="hfield">{{ c.field }}</span>
+                      @if (c.before !== null) { <s>{{ c.before }}</s> → } {{ c.after ?? '(removed)' }}</span>
+                  }
+                  <span class="muted when">{{ ago(h.createdAt) }}</span>
+                </div>
+              </div>
+            } @empty { <p class="hint">No changes yet.</p> }
+            @if (historyNext()) { <button type="button" class="btn ghost sm" (click)="loadHistory(true)">Show older</button> }
           </section>
         </div>
 
@@ -119,6 +140,21 @@
                 </app-dropdown>
               }
             </div>
+          </div>
+
+          <div class="prop">
+            <span class="plabel">Deadline</span>
+            <input class="input" type="datetime-local" [ngModel]="deadlineInput()" (change)="setDeadline($any($event.target).value)" [disabled]="!canEdit()" aria-label="Deadline" />
+            @if (task()!.deadline) { <span class="hint" [class.missed]="deadlineMissed()">{{ deadlineMissed() ? 'Deadline passed' : 'Hard deadline' }}</span> }
+          </div>
+
+          <div class="prop">
+            <span class="plabel">Category</span>
+            <select class="input" [ngModel]="task()!.category?.id ?? null" (ngModelChange)="setCategory($event)" [disabled]="!canEdit()" aria-label="Category">
+              <option [ngValue]="null">No category</option>
+              @if (task()!.category && !store.category(task()!.category!.id)) { <option [ngValue]="task()!.category!.id">{{ task()!.category!.name }}</option> }
+              @for (c of store.categories(); track c.id) { <option [ngValue]="c.id">{{ c.name }}</option> }
+            </select>
           </div>
 
           @if (members().length) {

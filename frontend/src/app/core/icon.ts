@@ -39,6 +39,14 @@ const PATHS = {
   leave: '<path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10"/>',
   history: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>',
   hourglass: '<path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9"/>',
+  tree: '<path d="M5 4v16M5 8h6M5 14h6M11 6h8v4h-8zM11 12h8v4h-8z"/>',
+  search: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
+  filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
+  grip: '<circle cx="9" cy="6" r=".9"/><circle cx="15" cy="6" r=".9"/><circle cx="9" cy="12" r=".9"/><circle cx="15" cy="12" r=".9"/><circle cx="9" cy="18" r=".9"/><circle cx="15" cy="18" r=".9"/>',
+  alarm: '<circle cx="12" cy="13" r="7"/><path d="M12 9.5V13l2.5 1.5M5 4L2.5 6.5M19 4l2.5 2.5"/>',
+  category: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
+  expand: '<path d="M7 9l5-5 5 5M7 15l5 5 5-5"/>',
+  collapse: '<path d="M7 4l5 5 5-5M7 20l5-5 5 5"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;

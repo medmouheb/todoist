@@ -30,9 +30,11 @@ public class ProjectToolsService {
     private final TaskRepository tasks;
     private final ProjectService projects;
     private final LabelService labels;
+    private final com.doable.activity.ActivityService activity;
 
     public ProjectToolsService(TaskService taskService, TaskRepository tasks, ProjectService projects,
-                               LabelService labels) {
+                               LabelService labels, com.doable.activity.ActivityService activity) {
+        this.activity = activity;
         this.taskService = taskService;
         this.tasks = tasks;
         this.projects = projects;
@@ -128,6 +130,10 @@ public class ProjectToolsService {
                         "Row " + (r + 1) + " (“" + title + "”) couldn't be read: dates are YYYY-MM-DD, times HH:MM, "
                                 + "priority 1–4.");
             }
+        }
+        if (added > 0) {
+            activity.record(userId, projectId, null, null, com.doable.activity.ActivityService.Action.IMPORTED,
+                    java.util.Map.<String, java.util.List<Object>>of("tasks", java.util.Arrays.asList(null, added)));
         }
         return added;
     }

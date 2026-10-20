@@ -1,3 +1,4 @@
+import { CdkDragHandle } from '@angular/cdk/drag-drop';
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, signal, viewChild } from '@angular/core';
 import { Auth } from '../../core/auth';
 import { addDays, dueChip, formatDuration, todayIso } from '../../core/dates';
@@ -11,17 +12,17 @@ import { TaskEditor } from './task-editor';
 
 @Component({
   selector: 'app-task-row',
-  imports: [Icon, TaskEditor, DatePicker],
+  imports: [Icon, TaskEditor, DatePicker, CdkDragHandle],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[class.selected]': 'selected()' },
+  host: { '[class.selected]': 'selected()', '[class.reorder]': 'reorderable()' },
   template: `
     @if (editing()) {
       <div class="editing"><app-task-editor [task]="task()" (saved)="editing.set(false)" (cancelled)="editing.set(false)" /></div>
     } @else {
-      <div class="row" [class.done]="task().completed" [class.sel]="selected()" [attr.draggable]="canEdit()"
+      <div class="row" [class.done]="task().completed" [class.sel]="selected()" [attr.draggable]="nativeDrag() && canEdit()"
            (dragstart)="onDragStart($event)" (dragend)="dragging.set(false)" [class.dragging]="dragging()"
            (contextmenu)="openMenu($event)">
-        <span class="handle" aria-hidden="true"><svg class="ic sm" viewBox="0 0 24 24"><circle cx="9" cy="6" r=".8"/><circle cx="15" cy="6" r=".8"/><circle cx="9" cy="12" r=".8"/><circle cx="15" cy="12" r=".8"/><circle cx="9" cy="18" r=".8"/><circle cx="15" cy="18" r=".8"/></svg></span>
+        <span class="handle" aria-hidden="true" cdkDragHandle [cdkDragHandleDisabled]="!reorderable()" title="Drag to reorder"><svg class="ic sm" viewBox="0 0 24 24"><circle cx="9" cy="6" r=".8"/><circle cx="15" cy="6" r=".8"/><circle cx="9" cy="12" r=".8"/><circle cx="15" cy="12" r=".8"/><circle cx="9" cy="18" r=".8"/><circle cx="15" cy="18" r=".8"/></svg></span>
         <button type="button" class="check" [class]="'check p' + task().priority" role="checkbox" [disabled]="!canComplete()"
                 [attr.aria-checked]="task().completed" [attr.aria-label]="(task().completed ? 'Reopen ' : 'Complete ') + task().title"
                 (click)="actions.toggleComplete(task())">
@@ -40,6 +41,12 @@ import { TaskEditor } from './task-editor';
               @if (task().durationMinutes) { <span class="m"><app-icon name="hourglass" [small]="true" />{{ duration() }}</span> }
               @if (task().subtaskCount) { <span class="m"><app-icon name="subtask" [small]="true" />{{ task().subtaskDone }}/{{ task().subtaskCount }}</span> }
               @if (task().commentCount) { <span class="m"><app-icon name="comment" [small]="true" />{{ task().commentCount }}</span> }
+              @if (deadline(); as d) {
+                <span class="m dl" [class]="'m dl ' + d.tone" [title]="'Deadline ' + d.full"><app-icon name="alarm" [small]="true" />{{ d.label }}</span>
+              }
+              @if (task().category; as c) {
+                <span class="m cat" [style.--cc]="'var(--proj-' + c.color + ')'"><span class="cdot"></span>{{ c.name }}</span>
+              }
               @for (l of task().labels; track l.id) {
                 <span class="label-chip" [style.--lc]="'var(--proj-' + l.color + ')'"><app-icon name="tag" [small]="true" />{{ l.name }}</span>
               }
@@ -108,8 +115,12 @@ import { TaskEditor } from './task-editor';
     .row { display: flex; align-items: flex-start; gap: 10px; min-height: var(--row-min-height); padding: 10px 4px 10px 0; border-bottom: 1px solid var(--border); position: relative; }
     .row.sel { background: var(--surface-selected); border-radius: var(--radius-md); }
     .row.dragging { opacity: .4; }
-    .handle { position: absolute; left: -22px; top: 12px; color: var(--ink-subtle); opacity: 0; cursor: grab; }
+    .handle { position: absolute; left: -24px; top: 8px; padding: 4px 3px; color: var(--ink-subtle); opacity: 0; cursor: grab; touch-action: none; }
     .row[draggable="true"]:hover .handle { opacity: 1; }
+    :host(.reorder) .handle, :host-context(.cdk-drag-preview) .handle { opacity: .5; cursor: grab; }
+    :host(.reorder) .row:hover .handle { opacity: 1; }
+    .dl.missed { color: var(--date-overdue); font-weight: 600; } .dl.soon { color: var(--date-tomorrow); } .dl.later { color: var(--ink-muted); }
+    .cat { color: var(--ink-muted); } .cdot { width: 8px; height: 8px; border-radius: 2px; background: var(--cc); }
     .check {
       --ring: var(--priority-4); --fill: transparent;
       width: var(--checkbox-size); height: var(--checkbox-size); margin: 2px 0 0 4px; flex: none; padding: 0;
@@ -157,6 +168,10 @@ export class TaskRow {
   /** Show the project name, for views that mix projects (Today, Upcoming). */
   readonly showProject = input(false);
   readonly selected = input(false);
+  /** Turn on the browser's own drag (drop onto a day in Upcoming). Lists that reorder use the CDK instead. */
+  readonly nativeDrag = input(false);
+  /** Show the reorder grip (lists with manual order). */
+  readonly reorderable = input(false);
 
   protected readonly editing = signal(false);
   protected readonly picking = signal(false);
@@ -171,6 +186,18 @@ export class TaskRow {
   protected readonly canEdit = computed(() => this.role() !== 'GUEST' && !this.task().completed);
   protected readonly canComplete = computed(() =>
     this.role() !== 'GUEST' || this.task().assignee?.id === this.auth.user()?.id);
+  /** Deadline chip: red once passed, amber within a day. */
+  protected readonly deadline = computed(() => {
+    const iso = this.task().deadline;
+    if (!iso) return null;
+    const d = new Date(iso);
+    const ms = d.getTime() - Date.now();
+    const tone = ms < 0 ? 'missed' : ms < 86_400_000 ? 'soon' : 'later';
+    const fmt = this.auth.user()?.timeFormat === '12h';
+    const time = d.toLocaleTimeString(undefined, { hour: fmt ? 'numeric' : '2-digit', minute: '2-digit', hour12: fmt });
+    const day = d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    return { label: (ms < 0 ? 'Missed ' : '') + day + ' ' + time, full: d.toLocaleString(), tone };
+  });
   protected readonly chip = computed(() => {
     const t = this.task();
     return t.dueDate ? dueChip(t.dueDate, t.dueTime, this.auth.user()?.timeFormat) : null;
@@ -179,7 +206,7 @@ export class TaskRow {
   protected readonly due = computed(() => dueOf(this.task()));
   protected readonly hasMeta = computed(() => {
     const t = this.task();
-    return !!(t.dueDate || t.durationMinutes || t.subtaskCount || t.commentCount || t.labels.length || t.assignee
+    return !!(t.dueDate || t.durationMinutes || t.subtaskCount || t.commentCount || t.labels.length || t.assignee || t.deadline || t.category
       || (this.showProject() && this.project()));
   });
   protected color = avatarColor;

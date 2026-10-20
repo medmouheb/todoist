@@ -17,6 +17,8 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
@@ -33,8 +35,20 @@ public class SecurityConfig {
                         .requestMatchers("/api/**", "/actuator/**").authenticated()
                         // Everything else is the Angular app's files (single-container image).
                         .anyRequest().permitAll())
-                .oauth2ResourceServer(rs -> rs.jwt(Customizer.withDefaults()))
+                .oauth2ResourceServer(rs -> rs.jwt(Customizer.withDefaults()).bearerTokenResolver(tokenResolver()))
                 .build();
+    }
+
+    /**
+     * The usual Authorization header everywhere; on the live event stream also ?access_token=...,
+     * because browsers' EventSource can't send headers.
+     */
+    private static BearerTokenResolver tokenResolver() {
+        DefaultBearerTokenResolver header = new DefaultBearerTokenResolver();
+        DefaultBearerTokenResolver headerOrQuery = new DefaultBearerTokenResolver();
+        headerOrQuery.setAllowUriQueryParameter(true);
+        return request -> "/api/events".equals(request.getRequestURI())
+                ? headerOrQuery.resolve(request) : header.resolve(request);
     }
 
     @Bean

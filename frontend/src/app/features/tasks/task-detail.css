@@ -67,3 +67,16 @@ h3 { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 20px
 .chips { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 13px; }
 .pad-s { padding: 6px 10px; }
 .created { margin-top: auto; }
+
+.history { padding-left: 24px; }
+.hrow { display: flex; gap: 8px; padding: 6px 0; font-size: 13px; }
+.htext { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.hchange { color: var(--ink-muted); overflow-wrap: anywhere; }
+.hchange s { color: var(--ink-subtle); }
+.hfield { font-weight: 600; margin-right: 4px; text-transform: capitalize; }
+.when { font-size: 12px; }
+.hint.missed { color: var(--date-overdue); font-weight: 600; }
+.dnd-list { display: block; }
+.dnd-list app-task-row.cdk-drag-placeholder { opacity: .35; }
+.cdk-drop-list-dragging app-task-row:not(.cdk-drag-placeholder) { transition: transform 200ms cubic-bezier(0, 0, .2, 1); }
+.subs { padding-left: 24px; }

@@ -41,6 +41,8 @@
     <a class="nav" routerLink="/today" routerLinkActive="on"><app-icon name="today" /><span>Today</span></a>
     <a class="nav" routerLink="/upcoming" routerLinkActive="on"><app-icon name="upcoming" /><span>Upcoming</span></a>
     <a class="nav" routerLink="/completed" routerLinkActive="on"><app-icon name="done" /><span>Completed</span></a>
+    <a class="nav" routerLink="/tree" routerLinkActive="on"><app-icon name="tree" /><span>Tree</span></a>
+    <a class="nav" routerLink="/history" routerLinkActive="on"><app-icon name="history" /><span>History</span></a>
 
     @if (store.favorites().length) {
       <div class="cap">Favorites</div>
@@ -56,8 +58,9 @@
       <span>My projects</span>
       <button class="ibtn" type="button" title="Add project" (click)="store.editingProject.set('new')"><app-icon name="plus" [small]="true" /></button>
     </div>
+    <div class="dnd" cdkDropList [cdkDropListData]="store.activeProjects()" (cdkDropListDropped)="dropProject($event)" aria-label="Projects (drag to reorder)">
     @for (p of store.activeProjects(); track p.id) {
-      <div class="proj">
+      <div class="proj" cdkDrag [cdkDragData]="p" cdkDragLockAxis="y" cdkDragPreviewContainer="parent">
         <a class="nav" [routerLink]="['/project', p.id]" routerLinkActive="on">
           <span class="hash" [style.--pc]="'var(--proj-' + p.color + ')'">#</span><span>{{ p.name }}</span>
           @if (p.memberCount > 1) { <app-icon name="share" [small]="true" class="shared" title="Shared" /> }
@@ -67,6 +70,28 @@
       </div>
     } @empty {
       <p class="muted none">No projects yet.</p>
+    }
+    </div>
+
+    <div class="cap row">
+      <button type="button" class="toggle-cap" [attr.aria-expanded]="categoriesOpen()" (click)="categoriesOpen.set(!categoriesOpen())">
+        Categories<app-icon [name]="categoriesOpen() ? 'chevron' : 'right'" [small]="true" />
+      </button>
+      <button class="ibtn" type="button" title="Add category" (click)="store.editingCategory.set('new')"><app-icon name="plus" [small]="true" /></button>
+    </div>
+    @if (categoriesOpen()) {
+      <div class="dnd" cdkDropList [cdkDropListData]="store.categories()" (cdkDropListDropped)="dropCategory($event)" aria-label="Categories (drag to reorder)">
+        @for (c of store.categories(); track c.id) {
+          <div class="proj" cdkDrag [cdkDragData]="c" cdkDragLockAxis="y" cdkDragPreviewContainer="parent">
+            <a class="nav" [routerLink]="['/category', c.id]" routerLinkActive="on">
+              <span class="cat-dot" [style.background]="'var(--proj-' + c.color + ')'"></span><span>{{ c.name }}</span>
+            </a>
+            <button type="button" class="ibtn more" [attr.aria-label]="'Edit ' + c.name" (click)="store.editingCategory.set(c)"><app-icon name="edit" [small]="true" /></button>
+          </div>
+        } @empty {
+          <p class="muted none">Group tasks across projects, like Work or Errands.</p>
+        }
+      </div>
     }
 
     @if (store.archivedProjects().length) {
@@ -110,6 +135,7 @@
 @if (store.editingProject()) { <app-project-dialog /> }
 @if (store.settingsOpen()) { <app-settings-dialog /> }
 @if (store.shortcutsOpen()) { <app-shortcuts-dialog /> }
+@if (store.editingCategory()) { <app-category-dialog /> }
 <app-confirm-dialog />
 
 <div class="toasts" aria-live="polite">
@@ -117,6 +143,7 @@
     <div class="toast">
       <span>{{ t.message }}</span>
       @if (t.undo) { <button type="button" (click)="t.undo(); store.dismiss(t.id)">Undo</button> }
+      @if (t.open) { <button type="button" (click)="t.open(); store.dismiss(t.id)">Open</button> }
       <button type="button" class="x" aria-label="Dismiss" (click)="store.dismiss(t.id)"><app-icon name="close" [small]="true" /></button>
     </div>
   }

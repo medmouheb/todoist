@@ -1,5 +1,7 @@
 package com.doable.project;
 
+import com.doable.activity.ActivityService;
+import com.doable.activity.ActivityService.Action;
 import com.doable.common.NotFoundException;
 import com.doable.mail.MailService;
 import com.doable.notification.NotificationService;
@@ -29,10 +31,12 @@ public class SharingService {
     private final TaskRepository tasks;
     private final NotificationService notifications;
     private final MailService mail;
+    private final ActivityService activity;
 
     public SharingService(ProjectAccess access, ProjectRepository projects, ProjectMemberRepository members,
                           ProjectInviteRepository invites, UserRepository users, TaskRepository tasks,
-                          NotificationService notifications, MailService mail) {
+                          NotificationService notifications, MailService mail, ActivityService activity) {
+        this.activity = activity;
         this.access = access;
         this.projects = projects;
         this.members = members;
@@ -76,15 +80,15 @@ public class SharingService {
         User inviter = users.findById(userId).orElseThrow();
         ProjectInvite invite = invites.save(new ProjectInvite(projectId, email, req.role(), userId));
 
+        String what = inviter.getName() + " invited you to join the project “" + p.getName() + "” on Doable as "
+                + req.role().label() + ".\nYou’ll be able to " + req.role().permissions() + ".\n\n";
         if (invitee != null) {
             notifications.invited(invitee.getId(), inviter, p, invite);
             mail.send(email, inviter.getName() + " invited you to “" + p.getName() + "”",
-                    inviter.getName() + " invited you to join the project “" + p.getName() + "” on Doable.\n\n"
-                            + "Accept or decline here:\n" + mail.link("/invites"));
+                    what + "Accept or decline here:\n" + mail.link("/invites"));
         } else {
             mail.send(email, inviter.getName() + " invited you to “" + p.getName() + "”",
-                    inviter.getName() + " invited you to join the project “" + p.getName() + "” on Doable.\n\n"
-                            + "Create a free account with this email address to join:\n" + mail.link("/signup"));
+                    what + "Create a free account with this email address to join:\n" + mail.link("/signup"));
         }
         return toResponse(invite, p, inviter);
     }
@@ -104,7 +108,11 @@ public class SharingService {
         if (m.getRole() == Role.ADMIN && role != Role.ADMIN && members.countWithRole(projectId, Role.ADMIN) == 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A project needs at least one admin.");
         }
+        Role old = m.getRole();
         m.setRole(role);
+        String name = users.findById(memberId).map(User::getName).orElse("someone");
+        activity.record(userId, projectId, null, name, Action.ROLE_CHANGED,
+                ActivityService.diff(java.util.Map.of("role", old.label()), java.util.Map.of("role", role.label())));
     }
 
     /** Admins can remove anyone; anyone can remove themselves (leave). */
@@ -126,6 +134,12 @@ public class SharingService {
         }
         members.delete(m);
         tasks.unassignInProject(projectId, memberId);
+        if (userId.equals(memberId)) {
+            activity.record(userId, projectId, null, null, Action.MEMBER_LEFT, null);
+        } else {
+            activity.record(userId, projectId, null, users.findById(memberId).map(User::getName).orElse("someone"),
+                    Action.MEMBER_REMOVED, null);
+        }
     }
 
     /** Invites waiting for this user's email address. */
@@ -146,15 +160,19 @@ public class SharingService {
                 .orElseThrow(() -> new NotFoundException("Invite"));
         Project p = projects.findById(invite.getProjectId()).orElseThrow();
         if (accept && !access.isMember(userId, p.getId())) {
-            members.save(new ProjectMember(p.getId(), userId, invite.getRole()));
+            ProjectMember m = new ProjectMember(p.getId(), userId, invite.getRole());
+            m.setPosition(members.forUser(userId).size());
+            members.save(m);
+            activity.record(userId, p.getId(), null, null, Action.MEMBER_JOINED,
+                    java.util.Map.<String, java.util.List<Object>>of("role", java.util.Arrays.asList(null, invite.getRole().label())));
         }
         invites.delete(invite);
         notifications.inviteAnswered(invite.getInvitedBy(), me, p, accept);
     }
 
     private InviteResponse toResponse(ProjectInvite i, Project p, User inviter) {
-        return new InviteResponse(i.getId(), p.getId(), p.getName(), i.getEmail(), i.getRole(),
-                inviter == null ? null : inviter.getName(), i.getCreatedAt());
+        return new InviteResponse(i.getId(), p.getId(), p.getName(), p.getColor(), i.getEmail(), i.getRole(),
+                i.getRole().permissions(), inviter == null ? null : inviter.getName(), i.getCreatedAt());
     }
 
     private List<InviteResponse> pendingInvites(Long projectId) {

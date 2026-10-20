@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { Router } from '@angular/router';
 import { Icon } from '../../core/icon';
 import { Project } from '../../core/models';
 import { ProjectActions } from '../../core/project-actions';
@@ -21,6 +22,7 @@ import { Dropdown } from '../../shared/dropdown';
         <button type="button" (click)="store.shareProjectId.set(project().id)"><app-icon name="share" [small]="true" />{{ admin() ? 'Share' : 'People' }}</button>
       }
       <hr />
+      <button type="button" (click)="history()"><app-icon name="history" [small]="true" />History</button>
       <button type="button" (click)="actions.duplicate(project())"><app-icon name="copy" [small]="true" />Duplicate</button>
       <button type="button" (click)="actions.exportTemplate(project())"><app-icon name="download" [small]="true" />Save as template (CSV)</button>
       @if (project().role !== 'GUEST' && !project().archived) {
@@ -47,4 +49,9 @@ export class ProjectMenu {
   readonly project = input.required<Project>();
   readonly align = input<'left' | 'right'>('right');
   protected readonly admin = computed(() => this.project().role === 'ADMIN');
+  private router = inject(Router);
+
+  protected history(): void {
+    this.router.navigate(['/history'], { queryParams: { project: this.project().id } });
+  }
 }

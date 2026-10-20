@@ -41,6 +41,10 @@ public class User {
     @Column(name = "home_view", nullable = false)
     private String homeView = "today";
 
+    /** IANA time zone, e.g. "Africa/Tunis"; reminders fire in this zone. */
+    @Column(name = "time_zone", nullable = false)
+    private String timeZone = "UTC";
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -67,6 +71,8 @@ public class User {
     public void setWeekStart(short weekStart) { this.weekStart = weekStart; }
     public String getHomeView() { return homeView; }
     public void setHomeView(String homeView) { this.homeView = homeView; }
+    public String getTimeZone() { return timeZone; }
+    public void setTimeZone(String timeZone) { this.timeZone = timeZone; }
     public Instant getCreatedAt() { return createdAt; }
 
     /** Initials for avatars, e.g. "Maya Andersen" → "MA". */
