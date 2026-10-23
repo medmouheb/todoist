@@ -33,10 +33,20 @@ async function call(token, method, path, body) {
   return data;
 }
 
-/** Signs up and confirms the email with the code from Mailpit (or logs in if verification is off). */
+/**
+ * Logs in if the account already exists and is verified; otherwise signs up and confirms the
+ * email with the code from Mailpit. With MAILPIT_URL=none (a live server, where .demo addresses
+ * get no mail) it returns null for an account still waiting for verification.
+ */
 async function join(p) {
+  try {
+    return (await call(null, 'POST', '/auth/login', { email: p.email, password: PASSWORD })).token;
+  } catch (e) {
+    if (/→ 403/.test(e.message)) return null; // exists, not verified yet
+  }
   const r = await call(null, 'POST', '/auth/signup', { ...p, password: PASSWORD });
   if (r.token) return r.token;
+  if (MAILPIT === 'none') return null;
   for (let i = 0; i < 30; i++) {
     const list = await (await fetch(MAILPIT + '/api/v1/messages')).json();
     const m = list.messages.find((x) => x.To.some((t) => t.Address === p.email));
@@ -48,16 +58,25 @@ async function join(p) {
 }
 
 async function main() {
-  // Already seeded?
+  // Already seeded? Maya has more than her Inbox.
   try {
-    await call(null, 'POST', '/auth/login', { email: people.maya.email, password: PASSWORD });
-    console.log('Demo data is already there. Log in as maya@northwind.demo / ' + PASSWORD);
-    return;
+    const { token } = await call(null, 'POST', '/auth/login', { email: people.maya.email, password: PASSWORD });
+    if ((await call(token, 'GET', '/projects')).length > 1) {
+      console.log('Demo data is already there. Log in as maya@northwind.demo / ' + PASSWORD);
+      return;
+    }
   } catch { /* not yet: carry on */ }
 
   console.log('Creating people…');
   const t = {};
   for (const [key, p] of Object.entries(people)) t[key] = await join(p);
+  const waiting = Object.keys(people).filter((key) => !t[key]);
+  if (waiting.length) {
+    console.log('These accounts exist but need their email verified before the data can be added:');
+    for (const key of waiting) console.log('  ' + people[key].email);
+    console.log("Mark them verified in the database (update users set email_verified_at = now() where email like '%.demo'), then run this again.");
+    process.exit(2);
+  }
   const ids = {};
   for (const key of Object.keys(people)) ids[key] = (await call(t[key], 'GET', '/me')).id;
 
