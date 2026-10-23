@@ -13,11 +13,34 @@ export interface User {
   weekStart: 0 | 1;
   homeView: HomeView;
   timeZone: string;
+  accountType: AccountType;
+  useCase: UseCase | null;
+  organizationName: string | null;
+  teamSize: TeamSize | null;
+  jobTitle: string | null;
+  emailVerified: boolean;
+}
+
+export type AccountType = 'INDIVIDUAL' | 'ORGANIZATION';
+export type UseCase = 'personal' | 'work' | 'study' | 'freelance' | 'other';
+export type TeamSize = '1-10' | '11-50' | '51-200' | '201-1000' | '1000+';
+
+export interface SignupDetails {
+  accountType: AccountType;
+  name: string;
+  email: string;
+  password: string;
+  useCase?: UseCase | null;
+  organizationName?: string | null;
+  teamSize?: TeamSize | null;
+  jobTitle?: string | null;
 }
 
 export interface AuthResponse {
-  token: string;
+  /** Null right after sign-up, until the email is confirmed. */
+  token: string | null;
   user: User;
+  verificationRequired: boolean;
 }
 
 export const PROJECT_COLORS = [
@@ -202,6 +225,11 @@ export interface Settings {
   weekStart?: 0 | 1;
   homeView?: HomeView;
   timeZone?: string;
+  accountType?: AccountType;
+  useCase?: UseCase | '';
+  organizationName?: string;
+  teamSize?: TeamSize | '';
+  jobTitle?: string;
 }
 
 export interface HistoryEntry {

@@ -34,7 +34,12 @@ public class UserController {
             @Pattern(regexp = "24h|12h") String timeFormat,
             @Min(0) @Max(1) Integer weekStart,
             @Pattern(regexp = "today|inbox|upcoming") String homeView,
-            @Size(max = 64) String timeZone) {
+            @Size(max = 64) String timeZone,
+            @Pattern(regexp = "INDIVIDUAL|ORGANIZATION") String accountType,
+            @Pattern(regexp = "personal|work|study|freelance|other|") String useCase,
+            @Size(max = 120) String organizationName,
+            @Pattern(regexp = "1-10|11-50|51-200|201-1000|1000\\+|") String teamSize,
+            @Size(max = 80) String jobTitle) {
     }
 
     public record PasswordRequest(@NotBlank String currentPassword, @NotBlank @Size(min = 8, max = 100) String newPassword) {
@@ -66,6 +71,14 @@ public class UserController {
         if (req.weekStart() != null) u.setWeekStart(req.weekStart().shortValue());
         if (req.homeView() != null) u.setHomeView(req.homeView());
         if (req.timeZone() != null && isZone(req.timeZone())) u.setTimeZone(req.timeZone());
+        if (req.accountType() != null) u.setAccountType(req.accountType());
+        if (req.useCase() != null) u.setUseCase(req.useCase().isBlank() ? null : req.useCase());
+        if (req.organizationName() != null) u.setOrganizationName(req.organizationName().isBlank() ? null : req.organizationName().trim());
+        if (req.teamSize() != null) u.setTeamSize(req.teamSize().isBlank() ? null : req.teamSize());
+        if (req.jobTitle() != null) u.setJobTitle(req.jobTitle().isBlank() ? null : req.jobTitle().trim());
+        if ("ORGANIZATION".equals(u.getAccountType()) && u.getOrganizationName() == null) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter your organization's name.");
+        }
         return UserResponse.of(u);
     }
 

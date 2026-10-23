@@ -24,6 +24,15 @@ export class Api {
   verifyLoginLink(token: string): Observable<AuthResponse> {
     return this.http.post<AuthResponse>('/api/auth/login-link/verify', { token });
   }
+  verifyEmail(email: string, code: string): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>('/api/auth/verify-email', { email, code });
+  }
+  verifyEmailLink(token: string): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>('/api/auth/verify-email/link', { token });
+  }
+  resendVerification(email: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>('/api/auth/verify-email/resend', { email });
+  }
   me(): Observable<User> {
     return this.http.get<User>('/api/me');
   }

@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Api, errorMessage } from '../../core/api';
 import { Auth } from '../../core/auth';
 import { Icon } from '../../core/icon';
-import { HomeView, Theme, TimeFormat } from '../../core/models';
+import { AccountType, HomeView, TeamSize, Theme, TimeFormat, UseCase } from '../../core/models';
 import { Store } from '../../core/store';
 
 /** Profile, password and preferences. */
@@ -23,6 +23,30 @@ import { Store } from '../../core/store';
           <h3>Profile and preferences</h3>
           <div class="field"><label for="s-name">Name</label><input id="s-name" class="input" name="name" [(ngModel)]="name" /></div>
           <div class="field"><span class="label">Email</span><span class="muted">{{ auth.user()?.email }}</span></div>
+          <div class="grid">
+            <div class="field"><label for="s-type">Account</label>
+              <select id="s-type" class="input" name="type" [(ngModel)]="accountType">
+                <option value="INDIVIDUAL">Individual</option><option value="ORGANIZATION">Organization</option>
+              </select>
+            </div>
+            @if (accountType === 'ORGANIZATION') {
+              <div class="field"><label for="s-org">Organization</label><input id="s-org" class="input" name="org" [(ngModel)]="organizationName" /></div>
+              <div class="field"><label for="s-size">Team size</label>
+                <select id="s-size" class="input" name="size" [(ngModel)]="teamSize">
+                  <option value="">Not set</option>
+                  @for (s of sizes; track s) { <option [value]="s">{{ s }} people</option> }
+                </select>
+              </div>
+              <div class="field"><label for="s-title">Your role</label><input id="s-title" class="input" name="title" [(ngModel)]="jobTitle" /></div>
+            } @else {
+              <div class="field"><label for="s-use">Mainly for</label>
+                <select id="s-use" class="input" name="use" [(ngModel)]="useCase">
+                  <option value="">Not set</option><option value="personal">Personal life</option><option value="work">Work</option>
+                  <option value="study">Studies</option><option value="freelance">Freelancing</option><option value="other">Something else</option>
+                </select>
+              </div>
+            }
+          </div>
           <div class="grid">
             <div class="field"><label for="s-theme">Theme</label>
               <select id="s-theme" class="input" name="theme" [(ngModel)]="theme">
@@ -84,6 +108,12 @@ export class SettingsDialog implements OnInit {
   protected homeView: HomeView = 'today';
   protected timeFormat: TimeFormat = '24h';
   protected weekStart: 0 | 1 = 1;
+  protected accountType: AccountType = 'INDIVIDUAL';
+  protected organizationName = '';
+  protected teamSize: TeamSize | '' = '';
+  protected jobTitle = '';
+  protected useCase: UseCase | '' = '';
+  protected readonly sizes: TeamSize[] = ['1-10', '11-50', '51-200', '201-1000', '1000+'];
   protected currentPassword = '';
   protected newPassword = '';
   protected readonly settingsMsg = signal('');
@@ -99,6 +129,11 @@ export class SettingsDialog implements OnInit {
     this.homeView = u.homeView;
     this.timeFormat = u.timeFormat;
     this.weekStart = u.weekStart;
+    this.accountType = u.accountType;
+    this.organizationName = u.organizationName ?? '';
+    this.teamSize = u.teamSize ?? '';
+    this.jobTitle = u.jobTitle ?? '';
+    this.useCase = u.useCase ?? '';
   }
 
   protected close(): void {
@@ -112,6 +147,10 @@ export class SettingsDialog implements OnInit {
     }
     this.api.updateSettings({
       name: this.name.trim(), theme: this.theme, homeView: this.homeView, timeFormat: this.timeFormat, weekStart: this.weekStart,
+      accountType: this.accountType, useCase: this.accountType === 'INDIVIDUAL' ? this.useCase : '',
+      organizationName: this.accountType === 'ORGANIZATION' ? this.organizationName.trim() : '',
+      teamSize: this.accountType === 'ORGANIZATION' ? this.teamSize : '',
+      jobTitle: this.accountType === 'ORGANIZATION' ? this.jobTitle.trim() : '',
     }).subscribe({
       next: (u) => {
         this.auth.setUser(u);

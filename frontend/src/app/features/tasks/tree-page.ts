@@ -119,7 +119,7 @@ interface Root {
     .page { max-width: var(--content-width); margin: 0 auto; padding: 24px 32px 80px; }
     @media (max-width: 760px) { .page { padding: 8px 16px 80px; } }
     .vh { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-    h1 { font-size: 26px; line-height: 34px; margin: 0; }
+    h1 { font-size: 30px; line-height: 38px; margin: 0; font-weight: 800; letter-spacing: -.02em; }
     .tools { display: flex; gap: 4px; }
     ul { list-style: none; margin: 0; padding: 0; }
     .tree { margin-top: 8px; }
@@ -175,6 +175,13 @@ interface Root {
     .empty .big { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
     .empty p { margin: 0; }
     .skeleton { height: 40px; border-radius: var(--radius-md); background: var(--surface-sunken); margin-bottom: 8px; }
+    /* Each project (or group) is a card */
+    .root { background: var(--surface); border-radius: 18px; padding: 6px 10px 8px; margin-bottom: 12px;
+      box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--border); }
+    .rootrow { font-size: 16px; padding: 10px 6px; }
+    .rootrow .hash { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; color: #fff;
+      background: var(--pc); font-size: 14px; }
+    .trow { min-height: 40px; }
     @media (prefers-reduced-motion: reduce) { li { animation: none; } .kids, .chev, .trow { transition: none; } }
   `,
 })

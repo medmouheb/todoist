@@ -52,6 +52,22 @@ services:
     ports:
       - "${MAILPIT_PORT:-8025}:8025"
 
+  # Demo data: docker compose --profile demo run --rm seed
+  # Creates an organization, people, projects, tasks and more (see scripts/seed-demo.mjs).
+  seed:
+    image: node:22-alpine
+    profiles: ["demo"]
+    working_dir: /scripts
+    command: node seed-demo.mjs
+    volumes:
+      - ./scripts:/scripts:ro
+    environment:
+      API_URL: http://backend:8080
+      MAILPIT_URL: http://mailpit:8025
+    depends_on:
+      backend:
+        condition: service_healthy
+
   # Database viewer in the browser: http://localhost:8081
   # Log in with System "PostgreSQL", Server "db" and the POSTGRES_* values from .env.
   adminer:

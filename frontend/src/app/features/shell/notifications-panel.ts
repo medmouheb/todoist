@@ -41,8 +41,8 @@ import { avatarColor } from '../../shared/dropdown';
     </div>
   `,
   styles: `
-    .panel { width: 360px; max-width: calc(100vw - 24px); background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius-lg); box-shadow: var(--shadow-md); display: flex; flex-direction: column; max-height: 70vh; }
+    .panel { width: 380px; max-width: calc(100vw - 24px); background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; box-shadow: var(--shadow-lg); overflow: hidden; animation: menu-in .18s ease-out both; display: flex; flex-direction: column; max-height: 70vh; }
     .head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--border); min-height: 48px; }
     .list { overflow-y: auto; }
     .item { display: flex; gap: 10px; padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--border); }

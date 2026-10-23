@@ -36,8 +36,8 @@ import { Store } from '../../core/store';
   styles: `
     .page { max-width: 640px; margin: 0 auto; padding: 24px 32px; }
     @media (max-width: 760px) { .page { padding: 8px 16px; } }
-    h1 { font-size: 26px; margin: 0 0 16px; }
-    .card { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 8px; background: var(--surface); flex-wrap: wrap; }
+    h1 { font-size: 30px; line-height: 38px; font-weight: 800; letter-spacing: -.02em; margin: 0 0 18px; }
+    .card { display: flex; align-items: center; gap: 14px; padding: 18px; border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow-sm); animation: pop-in .3s ease both; margin-bottom: 8px; background: var(--surface); flex-wrap: wrap; }
     .text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 200px; }
     .pname { font-size: 16px; }
     .role { font-size: 13px; color: var(--ink-muted); }

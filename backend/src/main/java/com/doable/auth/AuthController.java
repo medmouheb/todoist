@@ -39,6 +39,25 @@ public class AuthController {
         return auth.login(req);
     }
 
+    /** The 6-digit code from the verification email. */
+    @PostMapping("/verify-email")
+    public AuthResponse verifyEmail(@Valid @RequestBody AuthDtos.VerifyCodeRequest req) {
+        return auth.verifyCode(req.email(), req.code());
+    }
+
+    /** The one-click link from the verification email. */
+    @PostMapping("/verify-email/link")
+    public AuthResponse verifyEmailLink(@Valid @RequestBody TokenRequest req) {
+        return auth.verifyLink(req.token());
+    }
+
+    @PostMapping("/verify-email/resend")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public MessageResponse resendVerification(@Valid @RequestBody EmailRequest req) {
+        auth.resendVerification(req.email());
+        return new MessageResponse("If that address is waiting to be confirmed, we've sent a new code.");
+    }
+
     @PostMapping("/forgot-password")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public MessageResponse forgotPassword(@Valid @RequestBody EmailRequest req) {

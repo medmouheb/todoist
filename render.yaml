@@ -30,3 +30,7 @@ services:
         value: ""
       - key: TZ
         value: UTC
+      # New accounts confirm their email with a code before logging in. This needs BREVO_API_KEY;
+      # set to "false" to let testers in without email until Brevo is set up.
+      - key: REQUIRE_EMAIL_VERIFICATION
+        value: "true"

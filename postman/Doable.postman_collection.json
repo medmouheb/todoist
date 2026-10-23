@@ -24,7 +24,10 @@
     { "key": "taskId", "value": "" },
     { "key": "subtaskId", "value": "" },
     { "key": "inviteId", "value": "" },
-    { "key": "today", "value": "" }
+    { "key": "today", "value": "" },
+    { "key": "mailpitUrl", "value": "http://localhost:8025" },
+    { "key": "code", "value": "" },
+    { "key": "bobCode", "value": "" }
   ],
   "item": [
     {
@@ -33,11 +36,36 @@
         { "name": "Sign up",
           "event": [{ "listen": "test", "script": { "exec": [
             "pm.test('201 Created (409 if it already exists: use Log in)', () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));",
-            "if (pm.response.code === 201) pm.collectionVariables.set('token', pm.response.json().token);"
+            "if (pm.response.code === 201 && pm.response.json().token) pm.collectionVariables.set('token', pm.response.json().token);"
           ] } }],
           "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{baseUrl}}/api/auth/signup",
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman User\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}" } } },
+            "body": { "mode": "raw", "raw": "{\n  \"accountType\": \"INDIVIDUAL\",\n  \"name\": \"Postman User\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"useCase\": \"work\"\n}" },
+            "description": "accountType: INDIVIDUAL (optional useCase: personal, work, study, freelance, other) or ORGANIZATION (organizationName required; optional teamSize: 1-10, 11-50, 51-200, 201-1000, 1000+; jobTitle). The response has no token: confirm the email with the next request first." } },
+        { "name": "Verify email (code read from Mailpit)",
+          "event": [
+            { "listen": "prerequest", "script": { "exec": [
+              "// Reads the newest code sent to {{email}} from Mailpit (local only). Elsewhere, set the code variable by hand.",
+              "const to = pm.variables.get('email');",
+              "pm.sendRequest(pm.variables.get('mailpitUrl') + '/api/v1/messages', (err, res) => {",
+              "  if (err || !res) return;",
+              "  const m = res.json().messages.find((x) => x.To.some((t) => t.Address === to));",
+              "  if (m) pm.collectionVariables.set('code', m.Subject.match(/\\d{6}/)[0]);",
+              "});"
+            ] } },
+            { "listen": "test", "script": { "exec": [
+              "pm.test('200 OK (409 if already confirmed: use Log in)', () => pm.expect(pm.response.code).to.be.oneOf([200, 409]));",
+              "if (pm.response.code === 200) pm.collectionVariables.set('token', pm.response.json().token);"
+            ] } }
+          ],
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/verify-email",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"{{code}}\"\n}" } } },
+        { "name": "Resend the verification code",
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/verify-email/resend",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\"\n}" },
+            "description": "Once a minute at most. Not part of the normal run." } },
         { "name": "Log in",
           "event": [{ "listen": "test", "script": { "exec": [
             "pm.test('200 OK', () => pm.response.to.have.status(200));",
@@ -141,11 +169,29 @@
         { "name": "Bob signs up",
           "event": [{ "listen": "test", "script": { "exec": [
             "pm.test('201 Created', () => pm.response.to.have.status(201));",
-            "if (pm.response.code === 201) { pm.collectionVariables.set('bobToken', pm.response.json().token); pm.collectionVariables.set('bobId', pm.response.json().user.id); }"
+            "if (pm.response.code === 201) pm.collectionVariables.set('bobId', pm.response.json().user.id);"
           ] } }],
           "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{baseUrl}}/api/auth/signup",
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Bob Builder\",\n  \"email\": \"{{bobEmail}}\",\n  \"password\": \"password123\"\n}" } } },
+            "body": { "mode": "raw", "raw": "{\n  \"accountType\": \"ORGANIZATION\",\n  \"name\": \"Bob Builder\",\n  \"email\": \"{{bobEmail}}\",\n  \"password\": \"password123\",\n  \"organizationName\": \"Builder & Co\",\n  \"teamSize\": \"11-50\",\n  \"jobTitle\": \"Site lead\"\n}" } } },
+        { "name": "Bob verifies his email (code read from Mailpit)",
+          "event": [
+            { "listen": "prerequest", "script": { "exec": [
+              "const to = pm.variables.get('bobEmail');",
+              "pm.sendRequest(pm.variables.get('mailpitUrl') + '/api/v1/messages', (err, res) => {",
+              "  if (err || !res) return;",
+              "  const m = res.json().messages.find((x) => x.To.some((t) => t.Address === to));",
+              "  if (m) pm.collectionVariables.set('bobCode', m.Subject.match(/\\d{6}/)[0]);",
+              "});"
+            ] } },
+            { "listen": "test", "script": { "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) pm.collectionVariables.set('bobToken', pm.response.json().token);"
+            ] } }
+          ],
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/verify-email",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{bobEmail}}\",\n  \"code\": \"{{bobCode}}\"\n}" } } },
         { "name": "Invite Bob to the project",
           "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/api/projects/{{projectId}}/invites",
             "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{bobEmail}}\",\n  \"role\": \"MEMBER\"\n}" },

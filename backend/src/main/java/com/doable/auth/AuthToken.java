@@ -13,7 +13,16 @@ import java.time.Instant;
 @Table(name = "auth_tokens")
 public class AuthToken {
 
-    public enum Purpose { PASSWORD_RESET, LOGIN_LINK }
+    public enum Purpose {
+        PASSWORD_RESET, LOGIN_LINK,
+        /** The link in the verification email. */
+        EMAIL_VERIFY,
+        /** The 6-digit code in the verification email (hashed with the user id, so codes can repeat across users). */
+        EMAIL_CODE
+    }
+
+    /** Wrong guesses allowed for a code before it stops working. */
+    public static final int MAX_ATTEMPTS = 5;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,6 +44,9 @@ public class AuthToken {
     @Column(name = "used_at")
     private Instant usedAt;
 
+    @Column(nullable = false)
+    private int attempts;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -49,9 +61,14 @@ public class AuthToken {
     }
 
     public boolean usable(Purpose expected) {
-        return purpose == expected && usedAt == null && Instant.now().isBefore(expiresAt);
+        return purpose == expected && usedAt == null && Instant.now().isBefore(expiresAt) && attempts < MAX_ATTEMPTS;
     }
 
     public void markUsed() { this.usedAt = Instant.now(); }
+    public void failedAttempt() { this.attempts++; }
+    public int getAttempts() { return attempts; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Purpose getPurpose() { return purpose; }
+    public String getTokenHash() { return tokenHash; }
     public Long getUserId() { return userId; }
 }

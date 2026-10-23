@@ -26,9 +26,9 @@ Your latest code must be on GitHub (`medmouheb/todoist`), because Render builds 
 
    Keep it private: it contains the database password.
 
-## 2. Set up email on Brevo (optional, recommended)
+## 2. Set up email on Brevo (needed for sign-up)
 
-Without this the app works, but password resets, login links and invites aren't emailed.
+New accounts confirm their email with a code, so new people can't sign up without this. To let testers in before Brevo is ready, set `REQUIRE_EMAIL_VERIFICATION` to `false` in the Render service's **Environment** (and back to `true` once email works). Accounts that already existed are not affected.
 
 1. Sign up at <https://www.brevo.com> (free plan: 300 emails a day).
 2. **Senders, domains & dedicated IPs → Senders → Add a sender**, using the address emails should come from, then confirm it from your inbox.

@@ -1,9 +1,31 @@
 <div class="page">
+  @if (view() === 'today') {
+    <section class="hero" aria-label="Your day">
+      <div class="hero-blob"></div>
+      <div class="hero-text">
+        <p class="hero-date">{{ todayLabel }}</p>
+        <h2>{{ greeting() }}</h2>
+        <p class="hero-sub">{{ heroLine() }}</p>
+      </div>
+      <div class="hero-stats">
+        <div class="stat" [class.warn]="overdue().length > 0"><b>{{ overdue().length }}</b><span>overdue</span></div>
+        <div class="stat"><b>{{ total() - overdue().length }}</b><span>due today</span></div>
+        <div class="stat good"><b>{{ doneToday() }}</b><span>done today</span></div>
+      </div>
+    </section>
+  }
   <header class="vh">
     <div class="titlebar">
       <h1>
-        @if (project(); as p) { @if (!p.inbox) { <span class="hash" [style.--pc]="'var(--proj-' + p.color + ')'">#</span> } }
-        @if (category(); as c) { <span class="cat-mark" [style.background]="'var(--proj-' + c.color + ')'"></span> }
+        @if (project(); as p) {
+          <span class="tile" [style.--tc]="'var(--proj-' + p.color + ')'"><app-icon [name]="p.inbox ? 'inbox' : 'category'" /></span>
+        } @else if (category(); as c) {
+          <span class="tile" [style.--tc]="'var(--proj-' + c.color + ')'"><app-icon name="tag" /></span>
+        } @else if (view() === 'upcoming') {
+          <span class="tile" style="--tc: var(--date-week)"><app-icon name="upcoming" /></span>
+        } @else if (view() === 'today') {
+          <span class="tile" style="--tc: var(--date-today)"><app-icon name="today" /></span>
+        }
         {{ heading() }}
       </h1>
       @if (project(); as p) {

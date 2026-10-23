@@ -6,7 +6,7 @@ import {
 import { Observable } from 'rxjs';
 import { Api, errorMessage } from '../../core/api';
 import { Auth } from '../../core/auth';
-import { addDays, dayHeading, fromIso, startOfWeek, todayIso } from '../../core/dates';
+import { addDays, dayHeading, fromIso, startOfWeek, toIso, todayIso } from '../../core/dates';
 import { Icon } from '../../core/icon';
 import { Priority, Task } from '../../core/models';
 import { ProjectActions } from '../../core/project-actions';
@@ -107,6 +107,22 @@ export class TaskListPage {
   protected readonly total = computed(() => this.tasks().length);
   protected readonly overdue = computed(() => this.tasks().filter((t) => t.dueDate && t.dueDate < todayIso()));
   protected readonly members = signal<{ userId: number; initials: string; name: string }[]>([]);
+
+  // ---- Today's greeting banner ----
+  protected readonly doneToday = signal(0);
+  protected readonly todayLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  protected readonly greeting = computed(() => {
+    const h = new Date().getHours();
+    const first = this.auth.user()?.name.split(/\s+/)[0] ?? '';
+    const part = h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+    return `${part}, ${first}`;
+  });
+  protected readonly heroLine = computed(() => {
+    const left = this.total();
+    if (!left) return this.doneToday() ? 'Everything for today is done. Nice work!' : 'Nothing due today. Enjoy the calm.';
+    const over = this.overdue().length;
+    return `${left} ${left === 1 ? 'task' : 'tasks'} to go` + (over ? `, ${over} of them overdue.` : '. You’ve got this.');
+  });
 
   protected readonly heading = computed(() => {
     switch (this.view()) {
@@ -210,6 +226,12 @@ export class TaskListPage {
   private lastKey = '';
 
   private load(view: View | undefined, id: string | undefined): void {
+    if (view === 'today') {
+      this.api.completedTasks().subscribe((ts) => {
+        const today = todayIso();
+        this.doneToday.set(ts.filter((t) => t.completedAt && toIso(new Date(t.completedAt)) === today).length);
+      });
+    }
     const key = `${view}:${id}`;
     if (key !== this.lastKey) {
       this.lastKey = key;

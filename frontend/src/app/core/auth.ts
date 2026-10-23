@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse, HttpInterceptorFn } from '@angular/commo
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { CanActivateFn, RedirectFunction, Router } from '@angular/router';
 import { Observable, catchError, tap, throwError } from 'rxjs';
-import { AuthResponse, User } from './models';
+import { AuthResponse, SignupDetails, User } from './models';
 
 const TOKEN_KEY = 'doable.token';
 const USER_KEY = 'doable.user';
@@ -46,14 +46,14 @@ export class Auth {
     return this.http.post<AuthResponse>('/api/auth/login', { email, password }).pipe(tap((r) => this.store(r)));
   }
 
-  signup(name: string, email: string, password: string): Observable<AuthResponse> {
-    return this.http
-      .post<AuthResponse>('/api/auth/signup', { name, email, password })
-      .pipe(tap((r) => this.store(r)));
+  /** Creates the account. Until the email is confirmed the response has no token, so nothing is stored. */
+  signup(details: SignupDetails): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>('/api/auth/signup', details).pipe(tap((r) => this.store(r)));
   }
 
   /** After a password reset or login link. */
   store(r: AuthResponse): void {
+    if (!r.token) return; // waiting for email verification
     this.token.set(r.token);
     write(TOKEN_KEY, r.token);
     this.setUser(r.user);

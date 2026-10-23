@@ -1,0 +1,188 @@
+<app-auth-frame>
+  @if (verifying(); as email) {
+    <!-- Email verification (after sign-up, or logging in before confirming) -->
+    <section class="panel enter" aria-labelledby="v-title">
+      @if (mode() === 'signup') { <ol class="steps" aria-label="Sign-up progress"><li class="done">Account</li><li class="done">Details</li><li class="on">Verify</li></ol> }
+      @if (verified()) {
+        <div class="success">
+          <svg class="burst" viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="ring" cx="60" cy="60" r="46" />
+            <path class="tick" d="M40 62l14 14 28-30" />
+          </svg>
+          <h1 id="v-title">You’re all set!</h1>
+          <p class="sub">Your email is confirmed. Taking you to Doable…</p>
+        </div>
+      } @else {
+        <div class="envelope" aria-hidden="true"><app-icon name="mail" /></div>
+        <h1 id="v-title">Check your inbox</h1>
+        <p class="sub">We sent a 6-digit code to <b>{{ email }}</b>. Enter it below, or click the link in the email.</p>
+        <app-code-input [disabled]="busy()" [error]="codeError()" (completed)="checkCode($event)" />
+        @if (error()) { <p class="err center" role="alert">{{ error() }}</p> }
+        @if (notice()) { <p class="note center" role="status">{{ notice() }}</p> }
+        @if (busy()) { <p class="hint center"><span class="spinner"></span> Checking…</p> }
+        <div class="resend">
+          @if (resendIn() > 0) {
+            <span class="muted">You can ask for a new code in {{ resendIn() }} s</span>
+          } @else {
+            <button type="button" class="link" (click)="resend()">Send me a new code</button>
+          }
+          <span class="dot">·</span>
+          <button type="button" class="link" (click)="changeEmail()">Use a different email</button>
+        </div>
+        <p class="hint center">Can’t find it? Check your spam folder.@if (local) { Running locally? Emails land in <a href="http://localhost:8025" target="_blank" rel="noopener">Mailpit</a>. }</p>
+      }
+    </section>
+  } @else if (sentTo()) {
+    <section class="panel enter">
+      <div class="envelope" aria-hidden="true"><app-icon name="mail" /></div>
+      <h1>Check your email</h1>
+      <p class="sub">If there’s an account for <b>{{ sentTo() }}</b>, we’ve sent it a link. It works once and expires soon.</p>
+      <button class="btn big ghost-btn" type="button" (click)="sentTo.set('')">Use a different email</button>
+      <p class="switch"><a routerLink="/login">Back to log in</a></p>
+    </section>
+  } @else if (mode() === 'signup') {
+    <ol class="steps" aria-label="Sign-up progress">
+      <li [class.on]="step() === 1" [class.done]="step() > 1">Account</li>
+      <li [class.on]="step() === 2">Details</li>
+      <li>Verify</li>
+    </ol>
+
+    @if (step() === 1) {
+      <!-- Step 1: who is this account for? -->
+      <section class="panel enter" aria-labelledby="s1-title">
+        <h1 id="s1-title">Create your account</h1>
+        <p class="sub">First, tell us how you’ll use Doable.</p>
+        <div class="types" role="radiogroup" aria-label="Account type">
+          <button type="button" class="type" role="radio" [attr.aria-checked]="accountType() === 'INDIVIDUAL'" (click)="chooseType('INDIVIDUAL')">
+            <span class="ticon ind"><app-icon name="person" /></span>
+            <span class="tbody"><b>Just me</b><span>For your own tasks, goals and side projects. You can still share projects with anyone.</span></span>
+            <span class="check"><app-icon name="check" [small]="true" /></span>
+          </button>
+          <button type="button" class="type" role="radio" [attr.aria-checked]="accountType() === 'ORGANIZATION'" (click)="chooseType('ORGANIZATION')">
+            <span class="ticon org"><app-icon name="building" /></span>
+            <span class="tbody"><b>My organization</b><span>For a company, school, association or team working together.</span></span>
+            <span class="check"><app-icon name="check" [small]="true" /></span>
+          </button>
+        </div>
+        <p class="switch">Already have an account? <a routerLink="/login" class="strong">Log in</a></p>
+      </section>
+    } @else {
+      <!-- Step 2: details -->
+      <form class="panel enter" (ngSubmit)="signup()" novalidate aria-labelledby="s2-title">
+        <button type="button" class="back" (click)="step.set(1)"><app-icon name="left" [small]="true" />Back</button>
+        <h1 id="s2-title">{{ accountType() === 'ORGANIZATION' ? 'About you and your organization' : 'A few details' }}</h1>
+        <p class="sub">{{ accountType() === 'ORGANIZATION' ? 'This helps your teammates recognize you.' : 'Takes less than a minute.' }}</p>
+
+        <div class="fields">
+          <label class="fld">
+            <span>Your full name</span>
+            <span class="ctl"><app-icon name="person" [small]="true" /><input name="name" autocomplete="name" [(ngModel)]="name" placeholder="Maya Andersen" /></span>
+          </label>
+
+          @if (accountType() === 'ORGANIZATION') {
+            <label class="fld">
+              <span>Organization name</span>
+              <span class="ctl"><app-icon name="building" [small]="true" /><input name="org" autocomplete="organization" [(ngModel)]="organizationName" placeholder="Acme Studio" /></span>
+            </label>
+            <div class="row2">
+              <label class="fld">
+                <span>Team size</span>
+                <span class="ctl"><app-icon name="share" [small]="true" />
+                  <select name="size" [(ngModel)]="teamSize">
+                    <option [ngValue]="null">Choose…</option>
+                    @for (s of teamSizes; track s) { <option [ngValue]="s">{{ s }} people</option> }
+                  </select>
+                </span>
+              </label>
+              <label class="fld">
+                <span>Your role <i>(optional)</i></span>
+                <span class="ctl"><app-icon name="tag" [small]="true" /><input name="title" autocomplete="organization-title" [(ngModel)]="jobTitle" placeholder="Project manager" /></span>
+              </label>
+            </div>
+          } @else {
+            <div class="fld">
+              <span>What will you use it for most? <i>(optional)</i></span>
+              <div class="pills" role="radiogroup" aria-label="Main use">
+                @for (u of useCases; track u.value) {
+                  <button type="button" class="pill" role="radio" [attr.aria-checked]="useCase === u.value" (click)="useCase = useCase === u.value ? null : u.value">
+                    <app-icon [name]="u.icon" [small]="true" />{{ u.label }}
+                  </button>
+                }
+              </div>
+            </div>
+          }
+
+          <label class="fld">
+            <span>{{ accountType() === 'ORGANIZATION' ? 'Work email' : 'Email' }}</span>
+            <span class="ctl"><app-icon name="mail" [small]="true" /><input name="email" type="email" autocomplete="email" [(ngModel)]="email" placeholder="you@example.com" /></span>
+          </label>
+
+          <label class="fld">
+            <span>Password</span>
+            <span class="ctl"><app-icon name="lock" [small]="true" />
+              <input name="password" [type]="showPassword() ? 'text' : 'password'" autocomplete="new-password"
+                     [ngModel]="password" (ngModelChange)="setPassword($event)" placeholder="At least 8 characters" />
+              <button type="button" class="eye" [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'" (click)="showPassword.set(!showPassword())">
+                <app-icon [name]="showPassword() ? 'eyeOff' : 'eye'" [small]="true" />
+              </button>
+            </span>
+            <span class="meter" [attr.data-score]="strength()" aria-live="polite">
+              <i></i><i></i><i></i><i></i><b>{{ passwordValue() ? strengthLabel() : '' }}</b>
+            </span>
+          </label>
+        </div>
+
+        @if (error()) { <p class="err" role="alert">{{ error() }}</p> }
+        <button class="btn big primary-btn" type="submit" [disabled]="busy()">
+          @if (busy()) { <span class="spinner"></span> Creating your account… } @else { Create account <app-icon name="right" [small]="true" /> }
+        </button>
+        <p class="fine"><app-icon name="shield" [small]="true" />We’ll send a code to confirm your email. No spam, ever.</p>
+      </form>
+    }
+  } @else {
+    <!-- Log in, forgot password, email link -->
+    <form class="panel enter" (ngSubmit)="submit()" novalidate>
+      @if (mode() !== 'login') {
+        <button type="button" class="back" (click)="switchTo('login')"><app-icon name="left" [small]="true" />Back to log in</button>
+      }
+      <h1>{{ mode() === 'login' ? 'Welcome back 👋' : mode() === 'forgot' ? 'Forgot your password?' : 'Log in with a link' }}</h1>
+      <p class="sub">
+        @switch (mode()) {
+          @case ('login') { Log in to pick up where you left off. }
+          @case ('forgot') { Enter your email and we’ll send you a link to choose a new password. }
+          @default { We’ll email you a link that logs you in, no password needed. }
+        }
+      </p>
+
+      <div class="fields">
+        <label class="fld">
+          <span>Email</span>
+          <span class="ctl"><app-icon name="mail" [small]="true" /><input name="email" type="email" autocomplete="email" [(ngModel)]="email" placeholder="you@example.com" /></span>
+        </label>
+        @if (mode() === 'login') {
+          <label class="fld">
+            <span class="lrow">Password <a routerLink="/forgot-password" class="small">Forgot?</a></span>
+            <span class="ctl"><app-icon name="lock" [small]="true" />
+              <input name="password" [type]="showPassword() ? 'text' : 'password'" autocomplete="current-password" [(ngModel)]="password" placeholder="Your password" />
+              <button type="button" class="eye" [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'" (click)="showPassword.set(!showPassword())">
+                <app-icon [name]="showPassword() ? 'eyeOff' : 'eye'" [small]="true" />
+              </button>
+            </span>
+          </label>
+        }
+      </div>
+
+      @if (error()) { <p class="err" role="alert">{{ error() }}</p> }
+      <button class="btn big primary-btn" type="submit" [disabled]="busy()">
+        @if (busy()) { <span class="spinner"></span> Please wait… }
+        @else { {{ mode() === 'login' ? 'Log in' : mode() === 'forgot' ? 'Send reset link' : 'Email me a link' }} <app-icon name="right" [small]="true" /> }
+      </button>
+
+      @if (mode() === 'login') {
+        <div class="or"><span></span>or<span></span></div>
+        <button class="btn big ghost-btn" type="button" (click)="switchTo('link')"><app-icon name="mail" [small]="true" />Email me a login link</button>
+        <p class="switch">New to Doable? <a routerLink="/signup" class="strong">Create an account</a></p>
+      }
+    </form>
+  }
+</app-auth-frame>

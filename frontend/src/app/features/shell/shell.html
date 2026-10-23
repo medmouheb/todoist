@@ -1,12 +1,26 @@
 <div class="layout" [class.open]="sidebarOpen()">
   <aside class="side" aria-label="Navigation">
+    <div class="logo-row">
+      <a class="logo" routerLink="/today"><span class="mark"><app-icon name="check" /></span>Doable</a>
+      <span class="bell-wrap">
+        <button type="button" class="ibtn" [attr.aria-label]="'Notifications' + (store.unread() ? ', ' + store.unread() + ' unread' : '')"
+                [attr.aria-expanded]="bellOpen()" (click)="bellOpen.set(!bellOpen())">
+          <app-icon name="bell" />
+          @if (store.unread()) { <span class="badge">{{ store.unread() > 9 ? '9+' : store.unread() }}</span> }
+        </button>
+        @if (bellOpen()) { <app-notifications-panel class="bell-panel" (done)="bellOpen.set(false)" /> }
+      </span>
+    </div>
     <div class="side-top">
-      <app-dropdown>
+      <app-dropdown class="acct">
         <button trigger type="button" class="who" aria-label="Account menu">
-          <span class="av" [style.--ac]="color(auth.user()?.id)">{{ auth.user()?.initials }}</span>
-          <span class="name">{{ auth.user()?.name }}</span><app-icon name="chevron" [small]="true" />
+          <span class="av lg" [style.--ac]="color(auth.user()?.id)">{{ auth.user()?.initials }}</span>
+          <span class="who-text"><span class="name">{{ auth.user()?.name }}</span>
+            <span class="org">{{ auth.user()?.organizationName ?? (auth.user()?.accountType === 'ORGANIZATION' ? 'Organization' : 'Personal account') }}</span></span>
+          <app-icon name="chevron" [small]="true" />
         </button>
         <div class="menu-cap">{{ auth.user()?.email }}</div>
+        @if (auth.user()?.organizationName; as org) { <div class="menu-org"><app-icon name="building" [small]="true" />{{ org }}@if (auth.user()?.jobTitle) { · {{ auth.user()?.jobTitle }} }</div> }
         <button type="button" (click)="store.settingsOpen.set(true)"><app-icon name="settings" [small]="true" />Settings</button>
         <hr />
         <div class="menu-cap">Theme</div>
@@ -19,19 +33,10 @@
         <hr />
         <button type="button" (click)="auth.logout()"><app-icon name="logout" [small]="true" />Log out</button>
       </app-dropdown>
-
-      <span class="bell-wrap">
-        <button type="button" class="ibtn" [attr.aria-label]="'Notifications' + (store.unread() ? ', ' + store.unread() + ' unread' : '')"
-                [attr.aria-expanded]="bellOpen()" (click)="bellOpen.set(!bellOpen())">
-          <app-icon name="bell" />
-          @if (store.unread()) { <span class="badge">{{ store.unread() > 9 ? '9+' : store.unread() }}</span> }
-        </button>
-        @if (bellOpen()) { <app-notifications-panel class="bell-panel" (done)="bellOpen.set(false)" /> }
-      </span>
     </div>
 
-    <button class="nav add" type="button" (click)="store.quickAdd.set(true)" title="Add task (Q)">
-      <span class="addp"><app-icon name="plus" [small]="true" /></span>Add task
+    <button class="add-btn" type="button" (click)="store.quickAdd.set(true)" title="Add task (Q)">
+      <app-icon name="plus" />Add task<span class="kbd">Q</span>
     </button>
 
     <a class="nav" routerLink="/inbox" routerLinkActive="on">
@@ -115,7 +120,7 @@
 
   <main class="main">
     <div class="top">
-      <button class="ibtn menu" type="button" aria-label="Open menu" (click)="sidebarOpen.set(true)"><app-icon name="menu" /></button>
+      <button class="ibtn" type="button" aria-label="Open menu" (click)="sidebarOpen.set(true)"><app-icon name="menu" /></button>
       <span class="grow"></span>
       <button class="ibtn" type="button" aria-label="Add task" (click)="store.quickAdd.set(true)"><app-icon name="plus" /></button>
     </div>

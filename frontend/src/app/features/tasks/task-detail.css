@@ -80,3 +80,16 @@ h3 { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 20px
 .dnd-list app-task-row.cdk-drag-placeholder { opacity: .35; }
 .cdk-drop-list-dragging app-task-row:not(.cdk-drag-placeholder) { transition: transform 200ms cubic-bezier(0, 0, .2, 1); }
 .subs { padding-left: 24px; }
+
+/* Warmer panel */
+.detail { border-radius: 22px; animation: pop-in .28s cubic-bezier(.2, .9, .3, 1.15) both; }
+.top { padding: 14px 14px 14px 22px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--brand) 9%, var(--surface)), var(--surface)); }
+.ttl { font-size: 22px; font-weight: 800; letter-spacing: -.01em; }
+.side { background: color-mix(in srgb, var(--bg-sidebar) 85%, var(--surface)); }
+.pbtn { border-radius: 10px; height: 38px; }
+.side .input { height: 38px; }
+h3 { font-size: 14px; }
+.comment .av, .composer .av { width: 30px; height: 30px; font-size: 11px; }
+@media (max-width: 700px) { .detail { border-radius: 0; } }
+@media (prefers-reduced-motion: reduce) { .detail { animation: none; } }

@@ -41,6 +41,27 @@ public class User {
     @Column(name = "home_view", nullable = false)
     private String homeView = "today";
 
+    /** INDIVIDUAL or ORGANIZATION, chosen when signing up. */
+    @Column(name = "account_type", nullable = false)
+    private String accountType = "INDIVIDUAL";
+
+    /** Individuals: what they mainly use Doable for. */
+    @Column(name = "use_case")
+    private String useCase;
+
+    @Column(name = "organization_name")
+    private String organizationName;
+
+    @Column(name = "team_size")
+    private String teamSize;
+
+    @Column(name = "job_title")
+    private String jobTitle;
+
+    /** Set once the person proves the email address is theirs; they can't log in before that. */
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
+
     /** IANA time zone, e.g. "Africa/Tunis"; reminders fire in this zone. */
     @Column(name = "time_zone", nullable = false)
     private String timeZone = "UTC";
@@ -73,6 +94,19 @@ public class User {
     public void setHomeView(String homeView) { this.homeView = homeView; }
     public String getTimeZone() { return timeZone; }
     public void setTimeZone(String timeZone) { this.timeZone = timeZone; }
+    public String getAccountType() { return accountType; }
+    public void setAccountType(String accountType) { this.accountType = accountType; }
+    public String getUseCase() { return useCase; }
+    public void setUseCase(String useCase) { this.useCase = useCase; }
+    public String getOrganizationName() { return organizationName; }
+    public void setOrganizationName(String organizationName) { this.organizationName = organizationName; }
+    public String getTeamSize() { return teamSize; }
+    public void setTeamSize(String teamSize) { this.teamSize = teamSize; }
+    public String getJobTitle() { return jobTitle; }
+    public void setJobTitle(String jobTitle) { this.jobTitle = jobTitle; }
+    public Instant getEmailVerifiedAt() { return emailVerifiedAt; }
+    public boolean isEmailVerified() { return emailVerifiedAt != null; }
+    public void markEmailVerified() { if (emailVerifiedAt == null) emailVerifiedAt = Instant.now(); }
     public Instant getCreatedAt() { return createdAt; }
 
     /** Initials for avatars, e.g. "Maya Andersen" → "MA". */

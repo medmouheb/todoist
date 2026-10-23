@@ -75,7 +75,7 @@ import { HISTORY_VERBS, formatValue } from './task-detail';
     .page { max-width: var(--content-width); margin: 0 auto; padding: 24px 32px 80px; }
     @media (max-width: 760px) { .page { padding: 8px 16px 80px; } }
     .vh { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-    h1 { font-size: 26px; line-height: 34px; margin: 0; }
+    h1 { font-size: 30px; line-height: 38px; margin: 0; font-weight: 800; letter-spacing: -.02em; }
     .filter { width: auto; max-width: 220px; height: 32px; font-size: 13px; }
     .intro { margin: 4px 0 16px; font-size: 13px; }
     section { margin-bottom: 18px; }

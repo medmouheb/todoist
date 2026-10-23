@@ -12,6 +12,7 @@ export const routes: Routes = [
   // Links from emails; they work whether or not someone is signed in.
   { path: 'reset-password', data: { kind: 'reset' }, loadComponent: tokenPage },
   { path: 'login/link', data: { kind: 'link' }, loadComponent: tokenPage },
+  { path: 'verify-email', data: { kind: 'verify' }, loadComponent: tokenPage },
   {
     path: '',
     canActivate: [signedInGuard],

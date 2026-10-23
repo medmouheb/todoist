@@ -1,94 +1,28 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Api, errorMessage } from '../../core/api';
 import { Auth } from '../../core/auth';
 import { Icon } from '../../core/icon';
+import { AccountType, AuthResponse, TeamSize, UseCase } from '../../core/models';
+import { AuthFrame } from './auth-frame';
+import { CodeInput } from './code-input';
 
 type Mode = 'login' | 'signup' | 'forgot' | 'link';
 
-/** Log in, sign up, forgot password and "email me a login link". */
+const RESEND_SECONDS = 60;
+
+/**
+ * Log in, sign up (account type → details → email code), forgot password and "email me a link".
+ * Unverified accounts land on the code screen, both after sign-up and when they try to log in.
+ */
 @Component({
   selector: 'app-auth-page',
-  imports: [FormsModule, RouterLink, Icon],
+  imports: [FormsModule, RouterLink, Icon, AuthFrame, CodeInput],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <main class="wrap">
-      <div class="card">
-        <div class="brand"><span class="mark"><app-icon name="check" [small]="true" /></span>Doable</div>
-
-        @if (sentTo()) {
-          <h1>Check your email</h1>
-          <p class="muted sub">If there’s an account for <b>{{ sentTo() }}</b>, we’ve sent it a link. It works once and expires soon.</p>
-          <p class="hint">Running Doable locally? Emails land in Mailpit at <a href="http://localhost:8025" target="_blank" rel="noopener">localhost:8025</a>.</p>
-          <button class="btn submit" type="button" (click)="sentTo.set('')">Use a different email</button>
-          <p class="switch muted"><a routerLink="/login">Back to log in</a></p>
-        } @else {
-          <form (ngSubmit)="submit()" novalidate>
-            <h1>{{ titles[mode()] }}</h1>
-            <p class="muted sub">{{ subtitles[mode()] }}</p>
-
-            @if (mode() === 'login') {
-              <button class="btn wide outline" type="button" (click)="switchTo('link')"><app-icon name="comment" [small]="true" />Continue with email link</button>
-              <div class="or"><span></span>or<span></span></div>
-            }
-
-            <div class="fields">
-              @if (mode() === 'signup') {
-                <div class="field">
-                  <label for="name">Name</label>
-                  <input id="name" class="input" name="name" autocomplete="name" [(ngModel)]="name" required />
-                </div>
-              }
-              <div class="field">
-                <label for="email">Email</label>
-                <input id="email" class="input" type="email" name="email" autocomplete="email" [(ngModel)]="email" required />
-              </div>
-              @if (needsPassword()) {
-                <div class="field">
-                  <label for="password">Password</label>
-                  <input id="password" class="input" type="password" name="password" [class.is-error]="!!error()"
-                         [autocomplete]="mode() === 'signup' ? 'new-password' : 'current-password'" [(ngModel)]="password" required />
-                  @if (mode() === 'signup') { <span class="hint">At least 8 characters.</span> }
-                </div>
-              }
-              @if (error()) { <span class="err" role="alert">{{ error() }}</span> }
-            </div>
-
-            <button class="btn primary submit" type="submit" [disabled]="busy()">{{ busy() ? 'Please wait…' : buttons[mode()] }}</button>
-
-            <div class="links muted">
-              @switch (mode()) {
-                @case ('login') {
-                  <a routerLink="/forgot-password">Forgot password?</a>
-                  <span>New here? <a routerLink="/signup" class="strong">Sign up</a></span>
-                }
-                @case ('signup') { <span>Already have an account? <a routerLink="/login" class="strong">Log in</a></span> }
-                @default { <a routerLink="/login">Back to log in</a> }
-              }
-            </div>
-          </form>
-        }
-      </div>
-    </main>
-  `,
-  styles: `
-    .wrap { min-height: 100%; display: grid; place-items: center; padding: 32px 16px; background: var(--bg-sidebar); }
-    .card { width: 100%; max-width: 380px; padding: 28px; background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); }
-    .brand { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 700; letter-spacing: -.01em; margin-bottom: 22px; }
-    .mark { width: 28px; height: 28px; border-radius: 99px; background: var(--brand); color: var(--on-brand); display: grid; place-items: center; }
-    h1 { font-size: 24px; line-height: 32px; margin: 0; }
-    .sub { margin: 0 0 16px; }
-    .wide { width: 100%; height: 40px; }
-    .outline { border: 1px solid var(--border-strong); background: var(--surface); }
-    .or { display: flex; align-items: center; gap: 10px; margin: 16px 0; font-size: 12px; color: var(--ink-subtle); }
-    .or span { flex: 1; height: 1px; background: var(--border); }
-    .fields { display: flex; flex-direction: column; gap: 12px; }
-    .submit { width: 100%; height: 40px; margin-top: 16px; }
-    .links { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; }
-    .strong { font-weight: 600; }
-    .switch { margin: 14px 0 0; font-size: 13px; text-align: center; }
-  `,
+  templateUrl: './auth-page.html',
+  styleUrl: './auth-page.css',
 })
 export class AuthPage {
   private auth = inject(Auth);
@@ -96,46 +30,119 @@ export class AuthPage {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
-  /** Set from the route's data. */
+  /** From the route's data. */
   readonly routeMode = input<Mode>('login', { alias: 'mode' });
   private readonly override = signal<Mode | null>(null);
   protected readonly mode = computed(() => this.override() ?? this.routeMode());
-  protected readonly needsPassword = computed(() => this.mode() === 'login' || this.mode() === 'signup');
 
-  protected readonly titles: Record<Mode, string> = {
-    login: 'Log in', signup: 'Sign up', forgot: 'Forgot your password?', link: 'Log in with a link',
-  };
-  protected readonly subtitles: Record<Mode, string> = {
-    login: 'Welcome back.', signup: 'Organize your work and life.',
-    forgot: 'Enter your email and we’ll send you a link to set a new password.',
-    link: 'We’ll email you a link that logs you in, no password needed.',
-  };
-  protected readonly buttons: Record<Mode, string> = {
-    login: 'Log in', signup: 'Sign up', forgot: 'Send reset link', link: 'Email me a link',
-  };
-
+  // Sign-up
+  protected readonly step = signal<1 | 2>(1);
+  protected readonly accountType = signal<AccountType | null>(null);
   protected name = '';
   protected email = '';
   protected password = '';
+  protected readonly passwordValue = signal('');
+  protected readonly showPassword = signal(false);
+  protected useCase: UseCase | null = null;
+  protected organizationName = '';
+  protected teamSize: TeamSize | null = null;
+  protected jobTitle = '';
+
+  // Shared
+  /** Running on this computer: emails go to Mailpit, so say where to find them. */
+  protected readonly local = ['localhost', '127.0.0.1'].includes(location.hostname);
+
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly sentTo = signal('');
+
+  // Email verification
+  protected readonly verifying = signal<string | null>(null);
+  protected readonly codeError = signal(0);
+  protected readonly verified = signal(false);
+  protected readonly resendIn = signal(0);
+  protected readonly notice = signal('');
+  private timer: ReturnType<typeof setInterval> | null = null;
+
+  protected readonly useCases: { value: UseCase; label: string; icon: 'person' | 'today' | 'upcoming' | 'sparkle' | 'more' }[] = [
+    { value: 'personal', label: 'Personal life', icon: 'person' },
+    { value: 'work', label: 'My work', icon: 'today' },
+    { value: 'study', label: 'Studies', icon: 'upcoming' },
+    { value: 'freelance', label: 'Freelancing', icon: 'sparkle' },
+    { value: 'other', label: 'Something else', icon: 'more' },
+  ];
+  protected readonly teamSizes: TeamSize[] = ['1-10', '11-50', '51-200', '201-1000', '1000+'];
+
+  /** 0–4, from length and the mix of character kinds. */
+  protected readonly strength = computed(() => {
+    const p = this.passwordValue();
+    if (!p) return 0;
+    let s = p.length >= 8 ? 1 : 0;
+    if (p.length >= 12) s++;
+    if (/[a-z]/.test(p) && /[A-Z]/.test(p)) s++;
+    if (/\d/.test(p) && /[^A-Za-z0-9]/.test(p)) s++;
+    else if (/\d|[^A-Za-z0-9]/.test(p) && s < 4) s += p.length >= 10 ? 1 : 0;
+    return Math.min(s, 4);
+  });
+  protected readonly strengthLabel = computed(() => ['Too short', 'Okay', 'Good', 'Strong', 'Excellent'][this.strength()]);
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.timer && clearInterval(this.timer));
+  }
 
   protected switchTo(mode: Mode): void {
     this.override.set(mode);
     this.error.set('');
   }
 
-  protected submit(): void {
+  // ---- sign-up ----
+
+  protected chooseType(t: AccountType): void {
+    this.accountType.set(t);
+    this.error.set('');
+    setTimeout(() => this.step.set(2), 180); // let the selection animate first
+  }
+
+  protected setPassword(v: string): void {
+    this.password = v;
+    this.passwordValue.set(v);
+  }
+
+  protected signup(): void {
     const email = this.email.trim();
-    const mode = this.mode();
-    if (mode === 'signup' && !this.name.trim()) return this.error.set('Please enter your name.');
+    const org = this.accountType() === 'ORGANIZATION';
+    if (!this.name.trim()) return this.error.set('Please enter your name.');
+    if (org && !this.organizationName.trim()) return this.error.set('Please enter your organization’s name.');
     if (!/^\S+@\S+\.\S+$/.test(email)) return this.error.set('Please enter a valid email address.');
-    if (mode === 'signup' && this.password.length < 8) return this.error.set('Use at least 8 characters for your password.');
-    if (mode === 'login' && !this.password) return this.error.set('Please enter your password.');
+    if (this.password.length < 8) return this.error.set('Use at least 8 characters for your password.');
 
     this.busy.set(true);
     this.error.set('');
+    this.auth.signup({
+      accountType: this.accountType()!,
+      name: this.name.trim(),
+      email,
+      password: this.password,
+      useCase: org ? null : this.useCase,
+      organizationName: org ? this.organizationName.trim() : null,
+      teamSize: org ? this.teamSize : null,
+      jobTitle: org ? this.jobTitle.trim() || null : null,
+    }).subscribe({
+      next: (r) => this.afterAuth(r, email),
+      error: (err) => this.fail(err),
+    });
+  }
+
+  // ---- log in, forgot, link ----
+
+  protected submit(): void {
+    const email = this.email.trim();
+    const mode = this.mode();
+    if (!/^\S+@\S+\.\S+$/.test(email)) return this.error.set('Please enter a valid email address.');
+    if (mode === 'login' && !this.password) return this.error.set('Please enter your password.');
+    this.busy.set(true);
+    this.error.set('');
+
     if (mode === 'forgot' || mode === 'link') {
       const req = mode === 'forgot' ? this.api.forgotPassword(email) : this.api.sendLoginLink(email);
       req.subscribe({
@@ -143,21 +150,103 @@ export class AuthPage {
           this.busy.set(false);
           this.sentTo.set(email);
         },
-        error: (err) => {
-          this.busy.set(false);
-          this.error.set(errorMessage(err));
-        },
+        error: (err) => this.fail(err),
       });
       return;
     }
-    const req = mode === 'signup' ? this.auth.signup(this.name.trim(), email, this.password) : this.auth.login(email, this.password);
-    req.subscribe({
-      next: () => this.router.navigateByUrl(this.auth.home(this.route.snapshot.queryParamMap.get('returnUrl'))),
+    this.auth.login(email, this.password).subscribe({
+      next: (r) => this.afterAuth(r, email),
       error: (err) => {
-        this.busy.set(false);
+        if (err instanceof HttpErrorResponse && err.status === 403 && err.error?.code === 'EMAIL_NOT_VERIFIED') {
+          // Their earlier code may have expired: send a fresh one and show the code screen.
+          this.busy.set(false);
+          this.startVerifying(email);
+          this.resend(true);
+          return;
+        }
         this.password = '';
-        this.error.set(errorMessage(err));
+        this.passwordValue.set('');
+        this.fail(err);
       },
     });
+  }
+
+  // ---- verification ----
+
+  protected checkCode(code: string): void {
+    const email = this.verifying();
+    if (!email || this.busy()) return;
+    this.busy.set(true);
+    this.error.set('');
+    this.api.verifyEmail(email, code).subscribe({
+      next: (r) => {
+        this.auth.store(r);
+        this.verified.set(true);
+        setTimeout(() => this.goHome(), 1300); // let the success animation play
+      },
+      error: (err) => {
+        this.busy.set(false);
+        this.codeError.update((n) => n + 1);
+        this.error.set(errorMessage(err, 'That code isn’t right.'));
+      },
+    });
+  }
+
+  protected resend(silent = false): void {
+    const email = this.verifying();
+    if (!email || this.resendIn() > 0) return;
+    this.api.resendVerification(email).subscribe({
+      next: () => {
+        if (!silent) this.notice.set('A new code is on its way. Check your inbox.');
+        this.countdown();
+      },
+      error: (err) => {
+        if (!silent) this.error.set(errorMessage(err));
+        const wait = /(\d+) seconds/.exec(errorMessage(err))?.[1];
+        if (wait) this.countdown(Number(wait));
+      },
+    });
+  }
+
+  protected changeEmail(): void {
+    this.verifying.set(null);
+    this.error.set('');
+    this.notice.set('');
+    if (this.mode() === 'signup') this.step.set(2);
+  }
+
+  private afterAuth(r: AuthResponse, email: string): void {
+    this.busy.set(false);
+    if (r.verificationRequired) {
+      this.startVerifying(email);
+      this.countdown();
+    } else {
+      this.goHome();
+    }
+  }
+
+  private startVerifying(email: string): void {
+    this.error.set('');
+    this.notice.set('');
+    this.codeError.set(0);
+    this.verifying.set(email);
+  }
+
+  private countdown(seconds = RESEND_SECONDS): void {
+    if (this.timer) clearInterval(this.timer);
+    this.resendIn.set(seconds);
+    this.timer = setInterval(() => {
+      this.resendIn.update((s) => Math.max(0, s - 1));
+      if (this.resendIn() === 0 && this.timer) clearInterval(this.timer);
+    }, 1000);
+  }
+
+  private goHome(): void {
+    this.router.navigateByUrl(this.auth.home(this.route.snapshot.queryParamMap.get('returnUrl')));
+  }
+
+  private fail(err: unknown): void {
+    this.busy.set(false);
+    this.error.set(errorMessage(err));
   }
 }

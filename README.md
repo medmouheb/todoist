@@ -25,6 +25,24 @@ Nothing is ever delivered to a real inbox: open **http://localhost:8025** to rea
 
 Stop with `Ctrl+C` or `docker compose down`. Add `-v` (`docker compose down -v`) to also delete the database.
 
+### Demo data
+
+With the app running, fill it with a small team, projects, categories, nested sub-tasks, deadlines, comments, history and invitations:
+
+```bash
+docker compose --profile demo run --rm seed
+```
+
+It goes through the real API, so everything is valid data, and it does nothing if the demo accounts already exist. Every demo account uses the password `Doable2026!`:
+
+| Email                  | Who                                                                 |
+|------------------------|---------------------------------------------------------------------|
+| `maya@northwind.demo`  | Head of Product at Northwind Studio, owns most projects (best tour) |
+| `leo@northwind.demo`   | Designer at Northwind, member of the shared projects                |
+| `sara@northwind.demo`  | Lead developer at Northwind, admin of Mobile App Launch             |
+| `omar@client.demo`     | Freelance client, guest (read and comment) on Website Redesign      |
+| `ines@student.demo`    | Student with a personal account, thesis and travel projects         |
+
 ## Working on the code
 
 **Frontend with live reload.** Run `ng serve` inside a container instead of nginx:
@@ -80,7 +98,9 @@ docker run --rm --network doable_default -v "$PWD/postman:/etc/newman" postman/n
 Built from the [feature review](https://claude.ai/artifact/71rAh3mkEWYvSjAvesceHG) on the [Doable design system](https://claude.ai/artifact/WMQMtRTBHvESkeDXva1Y7j) tokens (colors, type, priority and date colors, light and dark).
 
 **Account**
-- Sign up, log in, forgot password (reset link by email), log in with an email link
+- Sign up in three steps: choose **Individual** or **Organization** (organization name, team size and your role; individuals say what they mainly use it for), enter your details with a password-strength meter, then **confirm your email** with a 6-digit code or a one-click link. Unconfirmed accounts can't log in. Codes expire after 30 minutes and lock after 5 wrong tries; a new one can be sent once a minute.
+- Log in, forgot password (reset link by email), log in with an email link
+- `REQUIRE_EMAIL_VERIFICATION=false` turns verification off (useful when the app runs without working email)
 - Settings: name, password, theme (device, light, dark), 12/24-hour time, week start, home view
 - Account menu with theme switch, keyboard shortcuts, data export (JSON) and log out
 

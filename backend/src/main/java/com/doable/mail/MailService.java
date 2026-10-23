@@ -49,6 +49,11 @@ public class MailService {
         }
     }
 
+    /** True when emails can actually go out (an SMTP server or a Brevo key is set). */
+    public boolean isConfigured() {
+        return brevo != null || smtpConfigured;
+    }
+
     /** A link into the frontend, e.g. link("/reset-password?token=abc"). */
     public String link(String path) {
         return app.appUrl().replaceAll("/+$", "") + path;

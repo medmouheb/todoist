@@ -157,6 +157,18 @@ import { TaskEditor } from './task-editor';
     .pf.p1 { color: var(--priority-1); } .pf.p2 { color: var(--priority-2); } .pf.p3 { color: var(--priority-3); } .pf.p4 { color: var(--priority-4); }
     .pf[aria-pressed="true"] { background: var(--surface-selected); }
     .moves { max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; }
+    /* Warmer rows */
+    .row { padding: 12px 8px 12px 0; border-radius: 12px; transition: background .15s ease; }
+    .row:hover { background: color-mix(in srgb, var(--surface-hover) 70%, transparent); }
+    .row.sel { background: var(--surface-selected); }
+    .check { width: 20px; height: 20px; margin-left: 8px; transition: transform .18s cubic-bezier(.3, 1.6, .5, 1), background .18s ease; }
+    .check:not(:disabled):hover { transform: scale(1.15); }
+    .check:not(:disabled):active { transform: scale(.9); }
+    .title { font-weight: 500; }
+    .meta { gap: 6px 12px; margin-top: 4px; }
+    .label-chip, .m.cat { background: var(--surface-sunken); border-radius: 99px; padding: 1px 8px; }
+    .tools .ibtn { width: 30px; height: 30px; }
+    @media (prefers-reduced-motion: reduce) { .check { transition: none; } }
   `,
 })
 export class TaskRow {

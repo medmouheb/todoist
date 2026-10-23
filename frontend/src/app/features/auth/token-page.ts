@@ -4,54 +4,65 @@ import { Router, RouterLink } from '@angular/router';
 import { Api, errorMessage } from '../../core/api';
 import { Auth } from '../../core/auth';
 import { Icon } from '../../core/icon';
+import { AuthResponse } from '../../core/models';
+import { AuthFrame } from './auth-frame';
 
-/** Where email links land: set a new password (reset), or log straight in (login link). */
+/**
+ * Where email links land: set a new password (reset), log straight in (login link),
+ * or confirm the email address (verify).
+ */
 @Component({
   selector: 'app-token-page',
-  imports: [FormsModule, RouterLink, Icon],
+  imports: [FormsModule, RouterLink, Icon, AuthFrame],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <main class="wrap">
-      <div class="card">
-        <div class="brand"><span class="mark"><app-icon name="check" [small]="true" /></span>Doable</div>
+    <app-auth-frame>
+      <section class="panel enter">
         @if (!token()) {
           <h1>This link is incomplete</h1>
-          <p class="muted">Open the link from the email again, or ask for a new one.</p>
-          <p class="links"><a routerLink="/login">Back to log in</a></p>
+          <p class="sub">Open the link from the email again, or ask for a new one.</p>
+          <a class="btn big ghost-btn" routerLink="/login">Back to log in</a>
         } @else if (kind() === 'reset') {
-          <form (ngSubmit)="reset()" novalidate>
-            <h1>Set a new password</h1>
-            <p class="muted sub">You’ll be logged in right after.</p>
-            <div class="field">
-              <label for="pw">New password</label>
-              <input id="pw" class="input" type="password" name="pw" autocomplete="new-password" [(ngModel)]="password" [class.is-error]="!!error()" />
-              <span class="hint">At least 8 characters.</span>
-            </div>
+          <form class="panel" (ngSubmit)="reset()" novalidate>
+            <h1>Choose a new password</h1>
+            <p class="sub">You’ll be logged in right after.</p>
+            <label class="fld">
+              <span>New password</span>
+              <span class="ctl"><app-icon name="lock" [small]="true" />
+                <input name="pw" [type]="show() ? 'text' : 'password'" autocomplete="new-password" [(ngModel)]="password" placeholder="At least 8 characters" />
+                <button type="button" class="eye" [attr.aria-label]="show() ? 'Hide password' : 'Show password'" (click)="show.set(!show())">
+                  <app-icon [name]="show() ? 'eyeOff' : 'eye'" [small]="true" />
+                </button>
+              </span>
+            </label>
             @if (error()) { <p class="err" role="alert">{{ error() }}</p> }
-            <button class="btn primary submit" type="submit" [disabled]="busy()">{{ busy() ? 'Saving…' : 'Save password' }}</button>
-            <p class="links"><a routerLink="/forgot-password">Ask for a new link</a></p>
+            <button class="btn big primary-btn" type="submit" [disabled]="busy()">{{ busy() ? 'Saving…' : 'Save and log in' }}</button>
+            <p class="switch"><a routerLink="/forgot-password">Ask for a new link</a></p>
           </form>
+        } @else if (error()) {
+          <div class="icon warn"><app-icon name="alarm" /></div>
+          <h1>That link didn’t work</h1>
+          <p class="err" role="alert">{{ error() }}</p>
+          <a class="btn big ghost-btn" routerLink="/login">Back to log in</a>
+        } @else if (done()) {
+          <div class="success">
+            <svg class="burst" viewBox="0 0 120 120" aria-hidden="true"><circle class="ring" cx="60" cy="60" r="46" /><path class="tick" d="M40 62l14 14 28-30" /></svg>
+            <h1>{{ kind() === 'verify' ? 'Email confirmed!' : 'You’re in!' }}</h1>
+            <p class="sub">Taking you to Doable…</p>
+          </div>
         } @else {
-          @if (error()) {
-            <h1>That link didn’t work</h1>
-            <p class="err" role="alert">{{ error() }}</p>
-            <p class="links"><a routerLink="/login">Back to log in</a></p>
-          } @else {
-            <h1>Logging you in…</h1>
-          }
+          <div class="icon"><span class="spinner"></span></div>
+          <h1>{{ kind() === 'verify' ? 'Confirming your email…' : 'Logging you in…' }}</h1>
         }
-      </div>
-    </main>
+      </section>
+    </app-auth-frame>
   `,
+  styleUrl: './auth-page.css',
   styles: `
-    .wrap { min-height: 100%; display: grid; place-items: center; padding: 32px 16px; background: var(--bg-sidebar); }
-    .card { width: 100%; max-width: 380px; padding: 28px; background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); }
-    .brand { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 700; margin-bottom: 22px; }
-    .mark { width: 28px; height: 28px; border-radius: 99px; background: var(--brand); color: var(--on-brand); display: grid; place-items: center; }
-    h1 { font-size: 24px; line-height: 32px; margin: 0 0 4px; }
-    .sub { margin: 0 0 16px; }
-    .submit { width: 100%; height: 40px; margin-top: 16px; }
-    .links { margin: 14px 0 0; font-size: 13px; }
+    .icon { width: 72px; height: 72px; border-radius: 22px; display: grid; place-items: center; background: var(--brand-tint); color: var(--brand-ink); }
+    .icon.warn { background: var(--priority-1-tint); color: var(--danger); }
+    .icon .spinner { width: 28px; height: 28px; border-width: 3px; }
+    a.btn { text-decoration: none; }
   `,
 })
 export class TokenPage implements OnInit {
@@ -60,24 +71,24 @@ export class TokenPage implements OnInit {
   private router = inject(Router);
 
   /** From the route data. */
-  readonly kind = input<'reset' | 'link'>('reset');
+  readonly kind = input<'reset' | 'link' | 'verify'>('reset');
   /** From the ?token= query parameter. */
   readonly token = input<string | undefined>(undefined);
 
   protected password = '';
+  protected readonly show = signal(false);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
+  protected readonly done = signal(false);
 
   ngOnInit(): void {
-    if (this.kind() === 'link' && this.token()) {
-      this.api.verifyLoginLink(this.token()!).subscribe({
-        next: (r) => {
-          this.auth.store(r);
-          this.router.navigateByUrl(this.auth.home());
-        },
-        error: (err) => this.error.set(errorMessage(err)),
-      });
-    }
+    const token = this.token();
+    if (!token || this.kind() === 'reset') return;
+    const req = this.kind() === 'verify' ? this.api.verifyEmailLink(token) : this.api.verifyLoginLink(token);
+    req.subscribe({
+      next: (r) => this.finish(r),
+      error: (err) => this.error.set(errorMessage(err)),
+    });
   }
 
   protected reset(): void {
@@ -85,14 +96,17 @@ export class TokenPage implements OnInit {
     this.busy.set(true);
     this.error.set('');
     this.api.resetPassword(this.token()!, this.password).subscribe({
-      next: (r) => {
-        this.auth.store(r);
-        this.router.navigateByUrl(this.auth.home());
-      },
+      next: (r) => this.finish(r),
       error: (err) => {
         this.busy.set(false);
         this.error.set(errorMessage(err));
       },
     });
+  }
+
+  private finish(r: AuthResponse): void {
+    this.auth.store(r);
+    this.done.set(true);
+    setTimeout(() => this.router.navigateByUrl(this.auth.home()), 1100);
   }
 }

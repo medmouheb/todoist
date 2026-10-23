@@ -17,7 +17,10 @@
   --shadow-sm: 0 1px 2px rgba(31, 30, 28, 0.08);
   --shadow-md: 0 6px 20px rgba(31, 30, 28, 0.12), 0 1px 3px rgba(31, 30, 28, 0.08);
   --shadow-lg: 0 24px 60px rgba(31, 30, 28, 0.22);
-  --radius-sm: 4px; --radius-md: 6px; --radius-lg: 10px; --radius-full: 9999px;
+  --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px; --radius-xl: 22px; --radius-full: 9999px;
+  --grad-brand: linear-gradient(135deg, #2f6f5e 0%, #1d8a99 100%);
+  --grad-warm: linear-gradient(135deg, #e8a33d 0%, #c0603c 100%);
+  --grad-hero: linear-gradient(120deg, #173f35 0%, #2f6f5e 45%, #1d8a99 100%);
   --sidebar-width: 280px; --content-width: 800px; --checkbox-size: 18px; --row-min-height: 44px;
   --font-sans: "Figtree", "Segoe UI", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", monospace;
@@ -163,3 +166,56 @@ app-task-row.cdk-drag-preview, .proj.cdk-drag-preview {
   display: block; background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); opacity: .95;
 }
 app-task-row.cdk-drag-preview .row { border-bottom: 0; padding-left: 8px; }
+
+/* ===================================================================================
+   Warmer look (matches the sign-in screens): softer corners, gradient primary actions,
+   bigger controls and gentle entrance animations. Later rules here override the ones above.
+   =================================================================================== */
+body { font-size: 15px; line-height: 22px; }
+
+.btn {
+  height: 36px; padding: 0 14px; border-radius: var(--radius-md); font-size: 14px;
+  transition: background .15s ease, transform .15s ease, box-shadow .15s ease, filter .15s ease;
+}
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn.primary {
+  background: var(--grad-brand); color: #fff; border: 0;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--brand) 30%, transparent);
+}
+.btn.primary:hover:not(:disabled) { background: var(--grad-brand); transform: translateY(-1px); filter: brightness(1.06);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--brand) 38%, transparent); }
+.btn.sm { height: 30px; padding: 0 10px; font-size: 13px; }
+.ibtn { width: 32px; height: 32px; border-radius: var(--radius-md); transition: background .15s ease, color .15s ease, transform .15s ease; }
+.ibtn:hover { transform: translateY(-1px); }
+
+.input { height: 42px; padding: 0 12px; border-radius: var(--radius-md); border-width: 1.5px; transition: border-color .15s ease, box-shadow .15s ease; }
+.input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 16%, transparent); }
+textarea.input { padding: 10px 12px; }
+
+/* Dialogs and menus pop in */
+.overlay { backdrop-filter: blur(3px); animation: fade-in .2s ease both; }
+.dialog { border-radius: var(--radius-xl); padding: 26px; gap: 16px; animation: pop-in .28s cubic-bezier(.2, .9, .3, 1.15) both; }
+.dialog h2 { font-size: 21px; font-weight: 800; letter-spacing: -.01em; }
+.menu { border-radius: 14px; padding: 6px; box-shadow: var(--shadow-lg); animation: menu-in .16s ease-out both; transform-origin: top; }
+.menu button, .menu a { border-radius: 8px; padding: 8px 10px; font-size: 14px; transition: background .12s ease; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop-in { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes menu-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
+
+/* Pages slide up into place; task rows follow one after another */
+.page { animation: page-in .38s cubic-bezier(.2, .7, .3, 1) backwards; }
+@keyframes page-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+/* "backwards": the animation lets go when done, so drag and drop can move rows freely. */
+app-task-row { animation: row-in .32s cubic-bezier(.2, .7, .3, 1) backwards; }
+app-task-row:nth-child(2) { animation-delay: 30ms; } app-task-row:nth-child(3) { animation-delay: 60ms; }
+app-task-row:nth-child(4) { animation-delay: 90ms; } app-task-row:nth-child(5) { animation-delay: 120ms; }
+app-task-row:nth-child(6) { animation-delay: 150ms; } app-task-row:nth-child(n+7) { animation-delay: 180ms; }
+@keyframes row-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.av { box-shadow: 0 0 0 2px var(--surface); }
+.kbd { border-radius: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay, .dialog, .menu, .page, app-task-row { animation: none; }
+  .btn, .ibtn { transition: none; }
+}
