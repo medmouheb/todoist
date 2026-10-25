@@ -44,6 +44,12 @@ doable:
   # With a Brevo API key, emails go through Brevo's HTTPS API instead of SMTP
   # (Render's free plan blocks SMTP).
   brevo-api-key: ${BREVO_API_KEY:}
+  # Or send from a Gmail account through the Gmail API (HTTPS, so it also works on Render's free
+  # plan). Takes priority over Brevo and SMTP. See deploy/GMAIL.md for getting these three values.
+  gmail:
+    client-id: ${GMAIL_CLIENT_ID:}
+    client-secret: ${GMAIL_CLIENT_SECRET:}
+    refresh-token: ${GMAIL_REFRESH_TOKEN:}
   # New accounts confirm their email with a code before they can log in. Needs working email
   # (Mailpit locally, Brevo or SMTP when hosted); set to false to switch it off.
   require-email-verification: ${REQUIRE_EMAIL_VERIFICATION:true}

@@ -31,6 +31,11 @@ services:
       APP_URL: ${APP_URL:-http://localhost:4200}
       MAIL_HOST: ${MAIL_HOST:-mailpit}
       MAIL_PORT: ${MAIL_PORT:-1025}
+      # Set these in .env to send real email from a Gmail account instead of Mailpit (deploy/GMAIL.md).
+      MAIL_FROM: ${MAIL_FROM:-Doable <no-reply@doable.local>}
+      GMAIL_CLIENT_ID: ${GMAIL_CLIENT_ID:-}
+      GMAIL_CLIENT_SECRET: ${GMAIL_CLIENT_SECRET:-}
+      GMAIL_REFRESH_TOKEN: ${GMAIL_REFRESH_TOKEN:-}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:

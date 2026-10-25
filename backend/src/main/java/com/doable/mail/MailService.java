@@ -18,6 +18,7 @@ import org.springframework.web.client.RestClientException;
 
 /**
  * Sends plain-text emails, by one of:
+ * - the Gmail API when the GMAIL_* settings are set (HTTPS, sends from that Gmail account);
  * - Brevo's HTTPS API when BREVO_API_KEY is set (works where SMTP is blocked, like Render's free plan);
  * - SMTP otherwise. In development that's Mailpit (http://localhost:8025).
  */
@@ -33,25 +34,29 @@ public class MailService {
     private final AppProperties app;
     private final boolean smtpConfigured;
     private final RestClient brevo;
+    private final GmailSender gmail;
 
     public MailService(JavaMailSender sender, AppProperties app, @Value("${spring.mail.host:}") String host) {
         this.sender = sender;
         this.app = app;
         this.smtpConfigured = !host.isBlank();
-        boolean useBrevo = app.brevoApiKey() != null && !app.brevoApiKey().isBlank();
+        this.gmail = app.gmail() != null && app.gmail().isSet() ? new GmailSender(app.gmail()) : null;
+        boolean useBrevo = gmail == null && app.brevoApiKey() != null && !app.brevoApiKey().isBlank();
         this.brevo = useBrevo
                 ? RestClient.builder().baseUrl("https://api.brevo.com/v3").defaultHeader("api-key", app.brevoApiKey()).build()
                 : null;
-        if (useBrevo) {
+        if (gmail != null) {
+            log.info("Emails will be sent through the Gmail API.");
+        } else if (useBrevo) {
             log.info("Emails will be sent through the Brevo API.");
         } else if (!smtpConfigured) {
             log.warn("No mail server set (MAIL_HOST or BREVO_API_KEY): password resets, login links and invites won't be emailed.");
         }
     }
 
-    /** True when emails can actually go out (an SMTP server or a Brevo key is set). */
+    /** True when emails can actually go out (Gmail, a Brevo key or an SMTP server is set). */
     public boolean isConfigured() {
-        return brevo != null || smtpConfigured;
+        return gmail != null || brevo != null || smtpConfigured;
     }
 
     /** A link into the frontend, e.g. link("/reset-password?token=abc"). */
@@ -63,7 +68,13 @@ public class MailService {
     public void send(String to, String subject, String body) {
         String from = app.mailFrom() == null || app.mailFrom().isBlank() ? DEFAULT_FROM : app.mailFrom();
         String text = body + "\n\n— Doable";
-        if (brevo != null) {
+        if (gmail != null) {
+            try {
+                gmail.send(from, to, subject, text);
+            } catch (Exception e) {
+                log.warn("Could not send \"{}\" to {} through Gmail: {}", subject, to, e.getMessage());
+            }
+        } else if (brevo != null) {
             sendWithBrevo(from, to, subject, text);
         } else if (smtpConfigured) {
             sendWithSmtp(from, to, subject, text);

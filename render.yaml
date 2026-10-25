@@ -19,18 +19,24 @@ services:
       # Render generates a random secret for signing logins.
       - key: JWT_SECRET
         generateValue: true
-      # Optional: Brevo API key and a sender you verified with Brevo, e.g. Doable <you@example.com>.
-      # Leave empty to run without email (password resets, login links and invites aren't sent).
-      - key: BREVO_API_KEY
-        sync: false
+      # Email: either a Gmail account (deploy/GMAIL.md) or Brevo (deploy/DEPLOY-RENDER.md).
+      # MAIL_FROM is the sender, e.g. Doable <you@gmail.com>. Leave all empty to run without email.
       - key: MAIL_FROM
+        sync: false
+      - key: GMAIL_CLIENT_ID
+        sync: false
+      - key: GMAIL_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_REFRESH_TOKEN
+        sync: false
+      - key: BREVO_API_KEY
         sync: false
       # No SMTP on Render's free plan.
       - key: MAIL_HOST
         value: ""
       - key: TZ
         value: UTC
-      # New accounts confirm their email with a code before logging in. This needs BREVO_API_KEY;
-      # set to "false" to let testers in without email until Brevo is set up.
+      # New accounts confirm their email with a code before logging in. This needs working email
+      # (Gmail or Brevo); set to "false" to let testers in without email until it is set up.
       - key: REQUIRE_EMAIL_VERIFICATION
         value: "true"
