@@ -91,6 +91,14 @@ public class Task {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    /** Last time anything about the task changed. */
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt = Instant.now();
+
+    /** Order inside its category, for the tree viewer. */
+    @Column(name = "category_position", nullable = false)
+    private int categoryPosition;
+
     @ManyToMany
     @JoinTable(name = "task_labels", joinColumns = @JoinColumn(name = "task_id"),
             inverseJoinColumns = @JoinColumn(name = "label_id"))
@@ -151,4 +159,11 @@ public class Task {
     public Instant getDeadlineMissedAt() { return deadlineMissedAt; }
     public void setDeadlineMissedAt(Instant deadlineMissedAt) { this.deadlineMissedAt = deadlineMissedAt; }
     public Set<Label> getLabels() { return labels; }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public int getCategoryPosition() { return categoryPosition; }
+    public void setCategoryPosition(int categoryPosition) { this.categoryPosition = categoryPosition; }
+
+    /** Marks the task as changed by someone now (not by background jobs like reminders). */
+    public void touch() { this.updatedAt = Instant.now(); }
+
 }

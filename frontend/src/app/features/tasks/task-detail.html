@@ -153,8 +153,22 @@
             <select class="input" [ngModel]="task()!.category?.id ?? null" (ngModelChange)="setCategory($event)" [disabled]="!canEdit()" aria-label="Category">
               <option [ngValue]="null">No category</option>
               @if (task()!.category && !store.category(task()!.category!.id)) { <option [ngValue]="task()!.category!.id">{{ task()!.category!.name }}</option> }
-              @for (c of store.categories(); track c.id) { <option [ngValue]="c.id">{{ c.name }}</option> }
+              @for (o of store.categoryTree(); track o.category.id) { <option [ngValue]="o.category.id">{{ indent(o.depth) }}{{ o.category.name }}</option> }
             </select>
+          </div>
+
+          <div class="prop">
+            <span class="plabel">Duration</span>
+            <select class="input" [ngModel]="task()!.durationMinutes" (ngModelChange)="setDuration($event)" [disabled]="!canEdit()" aria-label="Duration">
+              <option [ngValue]="null">Not estimated</option>
+              @if (task()!.durationMinutes && !durations.includes(task()!.durationMinutes!)) { <option [ngValue]="task()!.durationMinutes">{{ durationText(task()!.durationMinutes!) }}</option> }
+              @for (d of durations; track d) { <option [ngValue]="d">{{ durationText(d) }}</option> }
+            </select>
+          </div>
+
+          <div class="prop">
+            <span class="plabel">Conditions</span>
+            <app-conditions-editor [task]="task()!" [canEdit]="canEdit()" (changed)="task.set($event)" />
           </div>
 
           @if (members().length) {
@@ -168,7 +182,8 @@
           }
 
           @if (task()!.createdBy; as by) {
-            <p class="hint created">Added by {{ by.id === me()?.id ? 'you' : by.name }} · {{ ago(task()!.createdAt) }}</p>
+            <p class="hint created">Added by {{ by.id === me()?.id ? 'you' : by.name }} · {{ ago(task()!.createdAt) }}
+              @if (task()!.updatedAt && task()!.updatedAt !== task()!.createdAt) { <br />Changed {{ ago(task()!.updatedAt) }} }</p>
           }
         </div>
       </div>

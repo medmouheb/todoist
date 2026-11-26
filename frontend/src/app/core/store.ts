@@ -54,6 +54,8 @@ export class Store {
   readonly shortcutsOpen = signal(false);
   /** The category being edited in the category dialog, or 'new'. */
   readonly editingCategory = signal<Category | 'new' | null>(null);
+  /** Where a new category goes (null = under "Todos"). */
+  readonly newCategoryParent = signal<number | null>(null);
 
   loadProjects(): void {
     this.api.projects().subscribe((ps) => this.projects.set(ps));
@@ -69,6 +71,41 @@ export class Store {
 
   category(id: number): Category | undefined {
     return this.categories().find((c) => c.id === id);
+  }
+
+  /** Sub-categories of parentId (null = directly under "Todos"), in their order. */
+  readonly categoryChildren = computed(() => {
+    const map = new Map<number | null, Category[]>();
+    for (const c of this.categories()) map.set(c.parentId, [...(map.get(c.parentId) ?? []), c]);
+    for (const list of map.values()) list.sort((a, b) => a.position - b.position || a.id - b.id);
+    return map;
+  });
+
+  /** Every category in tree order with its depth (0 = under "Todos"), for indented lists and selects. */
+  readonly categoryTree = computed(() => {
+    const out: { category: Category; depth: number }[] = [];
+    const walk = (parent: number | null, depth: number) => {
+      for (const c of this.categoryChildren().get(parent) ?? []) {
+        out.push({ category: c, depth });
+        walk(c.id, depth + 1);
+      }
+    };
+    walk(null, 0);
+    return out;
+  });
+
+  /** "Work › Client" */
+  categoryPath(id: number): string {
+    const names: string[] = [];
+    for (let c = this.category(id); c; c = c.parentId ? this.category(c.parentId) : undefined) names.unshift(c.name);
+    return names.join(' › ');
+  }
+
+  /** The category and every category inside it. */
+  categoryAndDescendants(id: number): Set<number> {
+    const out = new Set<number>([id]);
+    for (const { category } of this.categoryTree()) if (category.parentId !== null && out.has(category.parentId)) out.add(category.id);
+    return out;
   }
 
   /** Notifications already shown as a toast ("id:message", so a merged update can show again). */
@@ -155,4 +192,9 @@ export class Store {
         },
       }));
   }
+}
+
+/** Non-breaking spaces to indent a category name by its depth in selects. */
+export function indent(depth: number): string {
+  return '\u00a0\u00a0\u00a0'.repeat(depth);
 }

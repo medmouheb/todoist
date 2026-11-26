@@ -62,7 +62,8 @@ async function main() {
   try {
     const { token } = await call(null, 'POST', '/auth/login', { email: people.maya.email, password: PASSWORD });
     if ((await call(token, 'GET', '/projects')).length > 1) {
-      console.log('Demo data is already there. Log in as maya@northwind.demo / ' + PASSWORD);
+      await extras(token);
+      console.log('Demo data is already there (now with nested categories and conditions). Log in as maya@northwind.demo / ' + PASSWORD);
       return;
     }
   } catch { /* not yet: carry on */ }
@@ -205,8 +206,62 @@ async function main() {
   // Ines invites Maya: shows up as an invitation in Maya's bell.
   await api('ines', 'POST', `/projects/${trip}/invites`, { email: people.maya.email, role: 'MEMBER' });
 
+  await extras(t.maya);
   console.log('\nDone! Every account uses the password: ' + PASSWORD);
   for (const p of Object.values(people)) console.log(`  ${p.email.padEnd(24)} ${p.name}`);
+}
+
+/**
+ * Nested categories and conditions of doing for Maya. Runs on fresh and already-seeded
+ * databases alike, and only adds what's missing.
+ */
+async function extras(token) {
+  const api = (method, path, body) => call(token, method, path, body);
+  let cats = await api('GET', '/categories');
+  const byName = (n) => cats.find((c) => c.name === n);
+  const ensure = async (name, color, parent) => {
+    if (!byName(name)) cats.push(await api('POST', '/categories', { name, color, parentId: byName(parent)?.id ?? null }));
+  };
+  await ensure('Marketing', 'sun', 'Work');
+  await ensure('Home', 'moss', 'Personal');
+  // Work › Client, Work › Marketing, Personal › Health, Personal › Errands, Personal › Home
+  for (const [child, parent] of [['Client', 'Work'], ['Marketing', 'Work'], ['Health', 'Personal'], ['Errands', 'Personal'], ['Home', 'Personal']]) {
+    const c = byName(child);
+    const p = byName(parent);
+    if (c && p && c.parentId !== p.id) cats = await api('PUT', `/categories/${c.id}/move`, { parentId: p.id });
+  }
+
+  const tasks = await api('GET', '/tasks/tree');
+  const find = (title) => tasks.find((x) => x.title === title);
+  const recategorize = async (title, category) => {
+    const x = find(title);
+    if (x && byName(category) && x.category?.id !== byName(category).id) await api('PATCH', `/tasks/${x.id}`, { categoryId: byName(category).id });
+  };
+  await recategorize('Plan the Q4 newsletter', 'Marketing');
+  await recategorize('Refresh LinkedIn page', 'Marketing');
+  await recategorize('Call the landlord about the heating', 'Home');
+  await recategorize('Water the plants', 'Home');
+
+  const add = async (title, condition) => {
+    const x = find(title);
+    if (!x) return;
+    const same = x.conditions.some((c) => c.type === condition.type && (c.value ?? null) === (condition.value ?? null)
+      && (c.afterTaskId ?? null) === (condition.afterTaskId ?? null));
+    if (!same) await api('POST', `/tasks/${x.id}/conditions`, condition);
+  };
+  const id = (title) => find(title)?.id;
+  if (id('Choose the CMS')) await add('Set up staging environment', { type: 'AFTER', afterTaskId: id('Choose the CMS') });
+  if (id('Accessibility review')) await add('Launch checklist', { type: 'AFTER', afterTaskId: id('Accessibility review') });
+  if (id('Decide launch pricing')) await add('Press kit', { type: 'AFTER', afterTaskId: id('Decide launch pricing') });
+  await add('Wireframes for home, pricing and contact', { type: 'PLACE', value: 'Office' });
+  await add('Decide launch pricing', { type: 'PERSON', value: 'Sara' });
+  await add('Decide launch pricing', { type: 'PLACE', value: 'Office' });
+  await add('Call the landlord about the heating', { type: 'TIME', startTime: '09:00', endTime: '17:00' });
+  await add('Groceries', { type: 'PLACE', value: 'Supermarket' });
+  await add('Morning run', { type: 'STATE', value: 'healthy' });
+  await add('Morning run', { type: 'TIME', startTime: '06:30', endTime: '08:00' });
+  await add('Book dentist appointment', { type: 'TIME', startTime: '08:00', endTime: '12:00' });
+  await add('Webinar with a client', { type: 'PERSON', value: 'Omar' });
 }
 
 main().catch((e) => {

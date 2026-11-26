@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { addDays, dayHeading, todayIso } from '../../core/dates';
 import { Icon } from '../../core/icon';
 import { Project, Task } from '../../core/models';
-import { Store } from '../../core/store';
+import { Store, indent } from '../../core/store';
 
 export type GroupBy = 'none' | 'category' | 'priority' | 'label' | 'project' | 'assignee' | 'due';
 export type DueFilter = 'any' | 'overdue' | 'today' | 'week' | 'none' | 'deadline';
@@ -106,6 +106,7 @@ export function groupTasks(tasks: Task[], by: GroupBy, project: (id: number) => 
       <button type="button" class="btn ghost sm" [class.on]="open()" [attr.aria-expanded]="open()" (click)="open.set(!open())">
         <app-icon name="filter" [small]="true" />Filter @if (activeCount()) { <span class="badge">{{ activeCount() }}</span> }
       </button>
+      @if (showGroup()) {
       <label class="group">
         <span>Group</span>
         <select [ngModel]="groupBy()" (ngModelChange)="groupBy.set($event)" aria-label="Group by">
@@ -118,6 +119,7 @@ export function groupTasks(tasks: Task[], by: GroupBy, project: (id: number) => 
           <option value="due">Date</option>
         </select>
       </label>
+      }
     </div>
     <div class="panel" [class.shown]="open()">
       <div class="inner">
@@ -137,7 +139,7 @@ export function groupTasks(tasks: Task[], by: GroupBy, project: (id: number) => 
           <label>Category
             <select [ngModel]="filter().categoryId" (ngModelChange)="set({ categoryId: $event })">
               <option [ngValue]="null">Any</option><option [ngValue]="0">No category</option>
-              @for (c of store.categories(); track c.id) { <option [ngValue]="c.id">{{ c.name }}</option> }
+              @for (o of store.categoryTree(); track o.category.id) { <option [ngValue]="o.category.id">{{ indent(o.depth) }}{{ o.category.name }}</option> }
             </select>
           </label>
           <label>Label
@@ -181,9 +183,11 @@ export function groupTasks(tasks: Task[], by: GroupBy, project: (id: number) => 
 })
 export class TaskToolbar {
   protected store = inject(Store);
+  protected readonly indent = indent;
   readonly filter = model<TaskFilter>(NO_FILTER);
   readonly groupBy = model<GroupBy>('none');
   readonly showProjectGroup = input(true);
+  readonly showGroup = input(true);
   /** What "no grouping" is called here ("Sections", "Projects"…). */
   readonly noneLabel = input('None');
   readonly open = model(false);

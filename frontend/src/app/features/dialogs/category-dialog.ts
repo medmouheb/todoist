@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { map, of, switchMap } from 'rxjs';
 import { Api, errorMessage } from '../../core/api';
 import { PROJECT_COLORS, ProjectColor } from '../../core/models';
-import { Store } from '../../core/store';
+import { Store, indent } from '../../core/store';
 
 /** Add, rename, recolor or delete a category. */
 @Component({
@@ -15,10 +16,19 @@ import { Store } from '../../core/store';
       <form class="dialog" role="dialog" [attr.aria-label]="id ? 'Edit category' : 'Add category'" (click)="$event.stopPropagation()"
             (ngSubmit)="save()" (keydown.escape)="close()">
         <h2>{{ id ? 'Edit category' : 'Add category' }}</h2>
-        <p class="hint">Categories group tasks across projects, for example Work, Errands or Health. A task has one category.</p>
+        <p class="hint">Categories group tasks across projects, for example Work, Errands or Health. They can sit inside each other, and a task has one category.</p>
         <div class="field">
           <label for="cname">Name</label>
           <input id="cname" class="input" name="cname" [(ngModel)]="name" autofocus maxlength="60" />
+        </div>
+        <div class="field">
+          <label for="cparent">Inside</label>
+          <select id="cparent" class="input" name="cparent" [(ngModel)]="parentId">
+            <option [ngValue]="null">Todos (top level)</option>
+            @for (o of parents(); track o.category.id) {
+              <option [ngValue]="o.category.id">{{ indent(o.depth) }}{{ o.category.name }}</option>
+            }
+          </select>
         </div>
         <div class="field">
           <span class="label">Color</span>
@@ -60,6 +70,17 @@ export class CategoryDialog implements OnInit {
   protected id: number | null = null;
   protected name = '';
   protected color: ProjectColor = 'sky';
+  protected parentId: number | null = null;
+  private originalParent: number | null = null;
+
+  /** Every category except this one and those inside it (it can't go inside itself). */
+  protected readonly parents = computed(() => {
+    const c = this.store.editingCategory();
+    const blocked = c && c !== 'new' ? this.store.categoryAndDescendants(c.id) : new Set<number>();
+    return this.store.categoryTree().filter((o) => !blocked.has(o.category.id));
+  });
+
+  protected readonly indent = indent;
 
   ngOnInit(): void {
     const c = this.store.editingCategory();
@@ -67,19 +88,24 @@ export class CategoryDialog implements OnInit {
       this.id = c.id;
       this.name = c.name;
       this.color = c.color;
+      this.parentId = this.originalParent = c.parentId;
+    } else {
+      this.parentId = this.store.newCategoryParent();
     }
   }
 
   protected close(): void {
     this.store.editingCategory.set(null);
+    this.store.newCategoryParent.set(null);
   }
 
   protected save(): void {
     const name = this.name.trim();
     if (!name) return this.error.set('Give the category a name.');
     const req = this.id === null
-      ? this.api.createCategory({ name, color: this.color })
-      : this.api.updateCategory(this.id, { name, color: this.color });
+      ? this.api.createCategory({ name, color: this.color, parentId: this.parentId })
+      : this.api.updateCategory(this.id, { name, color: this.color }).pipe(
+          switchMap((c) => this.parentId === this.originalParent ? of(c) : this.api.moveCategory(c.id, this.parentId).pipe(map(() => c))));
     req.subscribe({
       next: (c) => {
         this.close();
@@ -95,7 +121,7 @@ export class CategoryDialog implements OnInit {
     const id = this.id!;
     const ok = await this.store.confirm({
       title: 'Delete category?',
-      message: `“${this.name}” will be removed. Its tasks stay where they are, without a category.`,
+      message: `“${this.name}” will be removed. Its sub-categories move up one level, and its tasks stay where they are, without a category.`,
     });
     if (!ok) return;
     this.api.deleteCategory(id).subscribe({

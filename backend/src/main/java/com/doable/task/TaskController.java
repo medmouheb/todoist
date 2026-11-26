@@ -63,6 +63,25 @@ public class TaskController {
         tasks.reorder(CurrentUser.id(jwt), req.ids());
     }
 
+    /** Saves the order of tasks inside a category after drag and drop in the tree viewer. */
+    @PutMapping("/category-order")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void reorderInCategory(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody TaskDtos.CategoryOrderRequest req) {
+        tasks.reorderInCategory(CurrentUser.id(jwt), req.categoryId(), req.ids());
+    }
+
+    @PostMapping("/{id}/conditions")
+    @ResponseStatus(HttpStatus.CREATED)
+    public TaskResponse addCondition(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+                                     @Valid @RequestBody TaskDtos.ConditionRequest req) {
+        return tasks.addCondition(CurrentUser.id(jwt), id, req);
+    }
+
+    @DeleteMapping("/{id}/conditions/{conditionId}")
+    public TaskResponse removeCondition(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id, @PathVariable Long conditionId) {
+        return tasks.removeCondition(CurrentUser.id(jwt), id, conditionId);
+    }
+
     /** Completed tasks, newest first; all projects unless projectId is given. */
     @GetMapping("/completed")
     public List<TaskResponse> completed(@AuthenticationPrincipal Jwt jwt,

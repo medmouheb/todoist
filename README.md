@@ -134,6 +134,14 @@ Built from the [feature review](https://claude.ai/artifact/71rAh3mkEWYvSjAvesceH
 
 Not built yet: sections, board and calendar layouts, saved filters, goals, onboarding, the phone app.
 
+## Categories, conditions and the tree viewer
+
+- **Category tree.** Categories nest under a root called "Todos" (Work › Client, Personal › Health…). Each one has an order inside its parent and a history of moves and renames. Manage them at **Categories** in the sidebar: drag to reorder, use the arrows to put a category inside the one above it or take it out a level.
+- **Conditions of doing.** A task can wait for another task, a time window, a place, a person, or any other state ("healthy"). Add them in the task panel. A task waiting for an unfinished one shows as *waiting*. Two tasks can't wait for each other.
+- **Tree viewer.** Group the tree by category, project, priority, condition, duration, date, hashtag or assignee. By category, every category shows block A (its tasks, in their own order) and block B (its sub-categories). Each task is a row of fixed-width columns under a header; click a cell to see all of it. **Columns** picks which ones show.
+- **Drag to change.** Drag a task by its grip into another group to change that value: its category, priority, condition, duration, date, hashtag or assignee. Inside a project or category, dragging reorders.
+- Tasks also keep when they were last modified, and a duration can be set without a date (an estimate).
+
 ## Layout
 
 ```

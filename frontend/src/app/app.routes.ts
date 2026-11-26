@@ -25,6 +25,7 @@ export const routes: Routes = [
       { path: 'project/:id', loadComponent: taskList },
       { path: 'category/:id', data: { view: 'category' }, loadComponent: taskList },
       { path: 'tree', loadComponent: () => import('./features/tasks/tree-page').then((m) => m.TreePage) },
+      { path: 'categories', loadComponent: () => import('./features/categories/categories-page').then((m) => m.CategoriesPage) },
       { path: 'history', loadComponent: () => import('./features/tasks/history-page').then((m) => m.HistoryPage) },
       { path: 'completed', loadComponent: () => import('./features/tasks/completed-page').then((m) => m.CompletedPage) },
       { path: 'invites', loadComponent: () => import('./features/invites/invites-page').then((m) => m.InvitesPage) },

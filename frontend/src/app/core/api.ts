@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
-  AppNotification, AuthResponse, Category, Comment, HistoryPage, Invite, LabelRef, NewTask, Project, ProjectColor, Role,
+  AppNotification, AuthResponse, Category, CategoryHistoryEntry, Comment, HistoryPage, Invite, LabelRef, NewCondition, NewTask, Project, ProjectColor, Role,
   Settings, Sharing, Task, TaskChanges, TaskView, User,
 } from './models';
 import { todayIso } from './dates';
@@ -77,7 +77,7 @@ export class Api {
   categories(): Observable<Category[]> {
     return this.http.get<Category[]>('/api/categories');
   }
-  createCategory(body: { name: string; color: ProjectColor }): Observable<Category> {
+  createCategory(body: { name: string; color: ProjectColor; parentId?: number | null }): Observable<Category> {
     return this.http.post<Category>('/api/categories', body);
   }
   updateCategory(id: number, body: { name: string; color: ProjectColor }): Observable<Category> {
@@ -88,6 +88,13 @@ export class Api {
   }
   reorderCategories(ids: number[]): Observable<void> {
     return this.http.put<void>('/api/categories/order', { ids });
+  }
+  /** Puts a category under parentId (null = "Todos") at index among its new siblings; returns all categories. */
+  moveCategory(id: number, parentId: number | null, index?: number): Observable<Category[]> {
+    return this.http.put<Category[]>(`/api/categories/${id}/move`, { parentId, index });
+  }
+  categoryHistory(id: number): Observable<CategoryHistoryEntry[]> {
+    return this.http.get<CategoryHistoryEntry[]>(`/api/categories/${id}/history`);
   }
 
   // ---- history ----
@@ -161,6 +168,16 @@ export class Api {
   /** Saves a new order for sibling tasks. */
   reorderTasks(ids: number[]): Observable<void> {
     return this.http.put<void>('/api/tasks/order', { ids });
+  }
+  /** Saves the order of tasks inside a category (null = no category). */
+  reorderCategoryTasks(categoryId: number | null, ids: number[]): Observable<void> {
+    return this.http.put<void>('/api/tasks/category-order', { categoryId, ids });
+  }
+  addCondition(taskId: number, body: NewCondition): Observable<Task> {
+    return this.http.post<Task>(`/api/tasks/${taskId}/conditions`, body);
+  }
+  removeCondition(taskId: number, conditionId: number): Observable<Task> {
+    return this.http.delete<Task>(`/api/tasks/${taskId}/conditions/${conditionId}`);
   }
   completedTasks(projectId?: number): Observable<Task[]> {
     return this.http.get<Task[]>('/api/tasks/completed', { params: projectId ? { projectId } : {} });

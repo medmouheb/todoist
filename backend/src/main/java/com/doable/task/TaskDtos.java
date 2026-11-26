@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -65,6 +66,23 @@ public final class TaskDtos {
             Boolean clearDeadline) {
     }
 
+    /**
+     * A condition of doing. AFTER needs afterTaskId; TIME needs startTime and/or endTime;
+     * PLACE, PERSON and STATE need value.
+     */
+    public record ConditionRequest(@NotNull TaskCondition.Type type, @Size(max = 120) String value, Long afterTaskId,
+                                   LocalTime startTime, LocalTime endTime) {
+    }
+
+    /** Top-level tasks of one category (null = no category) in their new order. */
+    public record CategoryOrderRequest(Long categoryId, @NotEmpty @Size(max = 1000) List<Long> ids) {
+    }
+
+    /** met is false for AFTER while the other task is still open. */
+    public record ConditionRef(Long id, TaskCondition.Type type, String value, Long afterTaskId, String afterTaskTitle,
+                               LocalTime startTime, LocalTime endTime, String label, boolean met) {
+    }
+
     /** Task ids in their new order; all must be siblings (same project and same parent). */
     public record OrderRequest(@NotEmpty @Size(max = 1000) List<Long> ids) {
     }
@@ -83,6 +101,7 @@ public final class TaskDtos {
                                String recurrence, boolean completed, Instant completedAt, int position,
                                Instant createdAt, PersonRef createdBy, PersonRef assignee, List<LabelRef> labels,
                                int subtaskCount, int subtaskDone, int commentCount,
-                               CategoryRef category, Instant deadline) {
+                               CategoryRef category, Instant deadline, Instant updatedAt, int categoryPosition,
+                               List<ConditionRef> conditions) {
     }
 }

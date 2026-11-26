@@ -2,6 +2,7 @@ import { CdkDragHandle } from '@angular/cdk/drag-drop';
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, signal, viewChild } from '@angular/core';
 import { Auth } from '../../core/auth';
 import { addDays, dueChip, formatDuration, todayIso } from '../../core/dates';
+import { conditionIcon } from './conditions-editor';
 import { Icon } from '../../core/icon';
 import { Priority, Task } from '../../core/models';
 import { Store } from '../../core/store';
@@ -46,6 +47,9 @@ import { TaskEditor } from './task-editor';
               }
               @if (task().category; as c) {
                 <span class="m cat" [style.--cc]="'var(--proj-' + c.color + ')'"><span class="cdot"></span>{{ c.name }}</span>
+              }
+              @for (c of task().conditions; track c.id) {
+                <span class="m cond" [class.waiting]="!c.met" [title]="(c.met ? 'Condition: ' : 'Waiting: ') + c.label"><app-icon [name]="condIcon(c.type)" [small]="true" />{{ c.label }}</span>
               }
               @for (l of task().labels; track l.id) {
                 <span class="label-chip" [style.--lc]="'var(--proj-' + l.color + ')'"><app-icon name="tag" [small]="true" />{{ l.name }}</span>
@@ -157,6 +161,8 @@ import { TaskEditor } from './task-editor';
     .pf.p1 { color: var(--priority-1); } .pf.p2 { color: var(--priority-2); } .pf.p3 { color: var(--priority-3); } .pf.p4 { color: var(--priority-4); }
     .pf[aria-pressed="true"] { background: var(--surface-selected); }
     .moves { max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; }
+    .cond { color: var(--ink-muted); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cond.waiting { color: var(--date-overdue); font-weight: 600; }
     /* Warmer rows */
     .row { padding: 12px 8px 12px 0; border-radius: 12px; transition: background .15s ease; }
     .row:hover { background: color-mix(in srgb, var(--surface-hover) 70%, transparent); }
@@ -218,9 +224,10 @@ export class TaskRow {
   protected readonly due = computed(() => dueOf(this.task()));
   protected readonly hasMeta = computed(() => {
     const t = this.task();
-    return !!(t.dueDate || t.durationMinutes || t.subtaskCount || t.commentCount || t.labels.length || t.assignee || t.deadline || t.category
+    return !!(t.dueDate || t.durationMinutes || t.subtaskCount || t.commentCount || t.labels.length || t.assignee || t.deadline || t.category || t.conditions?.length
       || (this.showProject() && this.project()));
   });
+  protected condIcon = conditionIcon;
   protected color = avatarColor;
 
   @HostListener('document:keydown.escape')

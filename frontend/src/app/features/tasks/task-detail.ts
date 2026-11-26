@@ -4,9 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { Api, errorMessage } from '../../core/api';
 import { Auth } from '../../core/auth';
 import { dueChip, formatDuration, timeAgo } from '../../core/dates';
+import { ConditionsEditor } from './conditions-editor';
 import { Icon } from '../../core/icon';
 import { Comment, HistoryEntry, Member, Priority, Task } from '../../core/models';
-import { Store } from '../../core/store';
+import { Store, indent } from '../../core/store';
 import { TaskActions, dueOf } from '../../core/task-actions';
 import { DatePicker } from '../../shared/date-picker';
 import { Dropdown, avatarColor } from '../../shared/dropdown';
@@ -16,7 +17,7 @@ import { TaskRow } from './task-row';
 /** The full view of one task: every field, its sub-tasks and its comments. */
 @Component({
   selector: 'app-task-detail',
-  imports: [FormsModule, Icon, TaskRow, TaskEditor, DatePicker, Dropdown, CdkDropList, CdkDrag],
+  imports: [FormsModule, Icon, TaskRow, TaskEditor, DatePicker, Dropdown, CdkDropList, CdkDrag, ConditionsEditor],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './task-detail.html',
   styleUrl: './task-detail.css',
@@ -25,6 +26,7 @@ export class TaskDetail {
   private api = inject(Api);
   private auth = inject(Auth);
   protected store = inject(Store);
+  protected readonly indent = indent;
   protected actions = inject(TaskActions);
 
   protected readonly task = signal<Task | null>(null);
@@ -194,6 +196,15 @@ export class TaskDetail {
     const t = this.task();
     if (!t) return;
     this.actions.update(t.id, local ? { deadline: new Date(local).toISOString() } : { clearDeadline: true });
+  }
+
+  protected readonly durations = [5, 15, 30, 45, 60, 90, 120, 180, 240, 480];
+  protected durationText = formatDuration;
+
+  protected setDuration(minutes: number | null): void {
+    const t = this.task();
+    if (!t || minutes === t.durationMinutes) return;
+    this.actions.update(t.id, minutes ? { durationMinutes: minutes } : { clearDuration: true });
   }
 
   protected setCategory(id: number | null): void {

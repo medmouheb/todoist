@@ -6,7 +6,7 @@ import { Api, errorMessage } from '../../core/api';
 import { Auth } from '../../core/auth';
 import { download } from '../../core/download';
 import { Icon } from '../../core/icon';
-import { Category, Project, Theme } from '../../core/models';
+import { Project, Theme } from '../../core/models';
 import { Realtime } from '../../core/realtime';
 import { Store } from '../../core/store';
 import { Dropdown, avatarColor } from '../../shared/dropdown';
@@ -87,13 +87,6 @@ export class Shell {
     this.api.reorderProjects(list.map((p) => p.id)).subscribe({ error: (err) => this.failedReorder(err) });
   }
 
-  protected dropCategory(e: CdkDragDrop<Category[]>): void {
-    if (e.previousIndex === e.currentIndex) return;
-    const list = [...this.store.categories()];
-    moveItemInArray(list, e.previousIndex, e.currentIndex);
-    this.store.categories.set(list);
-    this.api.reorderCategories(list.map((c) => c.id)).subscribe({ error: (err) => this.failedReorder(err) });
-  }
 
   private failedReorder(err: unknown): void {
     this.store.toast(errorMessage(err));

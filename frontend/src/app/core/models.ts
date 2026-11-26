@@ -36,6 +36,31 @@ export interface SignupDetails {
   jobTitle?: string | null;
 }
 
+/** after another task, a time window, at a place, with someone, or any other state */
+export type ConditionType = 'AFTER' | 'TIME' | 'PLACE' | 'PERSON' | 'STATE';
+
+export interface Condition {
+  id: number;
+  type: ConditionType;
+  value: string | null;
+  afterTaskId: number | null;
+  afterTaskTitle: string | null;
+  startTime: string | null; // HH:mm:ss
+  endTime: string | null;
+  /** Readable: "after “Book venue”", "09:00–12:00", "at Office", "with Sara", "healthy" */
+  label: string;
+  /** false while the task it waits for is still open */
+  met: boolean;
+}
+
+export interface NewCondition {
+  type: ConditionType;
+  value?: string | null;
+  afterTaskId?: number | null;
+  startTime?: string | null;
+  endTime?: string | null;
+}
+
 export interface AuthResponse {
   /** Null right after sign-up, until the email is confirmed. */
   token: string | null;
@@ -102,6 +127,11 @@ export interface Task {
   category: CategoryRef | null;
   /** ISO instant */
   deadline: string | null;
+  /** ISO instant: last time anyone changed it */
+  updatedAt: string;
+  /** Order inside its category */
+  categoryPosition: number;
+  conditions: Condition[];
 }
 
 export interface CategoryRef {
@@ -111,7 +141,18 @@ export interface CategoryRef {
 }
 
 export interface Category extends CategoryRef {
+  /** Order among siblings */
   position: number;
+  /** null = directly under "Todos" */
+  parentId: number | null;
+}
+
+export interface CategoryHistoryEntry {
+  id: number;
+  action: 'CREATED' | 'MOVED' | 'RENAMED';
+  from: string | null;
+  to: string | null;
+  createdAt: string;
 }
 
 /** Date, time, duration and repeat travel together through the date picker. */

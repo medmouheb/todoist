@@ -7,7 +7,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-/** A personal way to group tasks across projects (Work, Errands, Health…). A task has at most one. */
+/**
+ * A personal way to group tasks across projects (Work, Errands, Health…). A task has at most one.
+ * Categories nest: one without a parent sits directly under the "Todos" root.
+ */
 @Entity
 @Table(name = "categories")
 public class Category {
@@ -25,6 +28,10 @@ public class Category {
     @Column(nullable = false)
     private String color;
 
+    @Column(name = "parent_id")
+    private Long parentId;
+
+    /** Order among the categories with the same parent. */
     @Column(nullable = false)
     private int position;
 
@@ -46,4 +53,6 @@ public class Category {
     public void setColor(String color) { this.color = color; }
     public int getPosition() { return position; }
     public void setPosition(int position) { this.position = position; }
+    public Long getParentId() { return parentId; }
+    public void setParentId(Long parentId) { this.parentId = parentId; }
 }

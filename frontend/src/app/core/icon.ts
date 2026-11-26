@@ -54,6 +54,7 @@ const PATHS = {
   category: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
   expand: '<path d="M7 9l5-5 5 5M7 15l5 5 5-5"/>',
   collapse: '<path d="M7 4l5 5 5-5M7 20l5-5 5 5"/>',
+  columns: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 4.5v15M15 4.5v15"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;

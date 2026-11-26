@@ -64,6 +64,9 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query("select count(t) from Task t where t.projectId = :projectId")
     int countInProject(Long projectId);
 
+    @Query("select coalesce(max(t.categoryPosition) + 1, 0) from Task t where t.categoryId = :categoryId")
+    int nextCategoryPosition(Long categoryId);
+
     @Query("select t.projectId, count(t) from Task t where t.projectId in :projectIds and t.completed = false "
             + "and t.deletedAt is null group by t.projectId")
     List<Object[]> countOpenByProjectRaw(Collection<Long> projectIds);

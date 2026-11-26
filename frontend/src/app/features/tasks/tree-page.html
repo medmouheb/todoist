@@ -1,0 +1,172 @@
+<div class="page">
+  <header class="vh">
+    <div class="tile"><app-icon name="tree" /></div>
+    <h1>Tree viewer</h1>
+    <div class="tools">
+      <app-dropdown align="right">
+        <button trigger type="button" class="btn ghost sm"><app-icon name="columns" [small]="true" />Columns</button>
+        <span class="menu-cap">Columns to show</span>
+        @for (c of allColumns; track c.key) {
+          <button type="button" role="menuitemcheckbox" data-keep-open [attr.aria-checked]="columnKeys().includes(c.key)" (click)="toggleColumn(c.key)">
+            <span class="box" [class.on]="columnKeys().includes(c.key)">@if (columnKeys().includes(c.key)) { <app-icon name="check" [small]="true" /> }</span>{{ c.label }}
+          </button>
+        }
+        <hr />
+        <button type="button" (click)="resetColumns()">Reset to default</button>
+      </app-dropdown>
+      <button type="button" class="btn ghost sm" (click)="expandAll()"><app-icon name="expand" [small]="true" />Expand all</button>
+      <button type="button" class="btn ghost sm" (click)="collapseAll()"><app-icon name="collapse" [small]="true" />Collapse all</button>
+    </div>
+  </header>
+
+  <div class="types" role="radiogroup" aria-label="Group the tree by">
+    @for (v of types; track v.type) {
+      <button type="button" class="type" role="radio" [attr.aria-checked]="type() === v.type" (click)="type.set(v.type)">
+        <app-icon [name]="v.icon" [small]="true" />{{ v.label }}
+      </button>
+    }
+  </div>
+
+  <app-task-toolbar [(filter)]="filter" [(open)]="filtersOpen" [showGroup]="false" />
+  <p class="hint">Drag a task by its grip into another group to change its {{ type() === 'label' ? 'hashtag' : type() === 'due' ? 'date' : type() }}.
+    Click a cell to see all of it.</p>
+
+  @if (!loaded()) {
+    @for (i of [1, 2, 3]; track i) { <div class="skeleton"></div> }
+  } @else {
+    <div class="scroller">
+      <div class="inner" [style.min-width.px]="cellsWidth() + 240">
+        <!-- Column header: which cell is which column -->
+        <div class="head" aria-hidden="true">
+          <span class="htitle">Task</span>
+          @for (c of columns(); track c.key) { <span class="hcell" [style.width.px]="c.width">{{ c.label }}</span> }
+          <span class="hacts">Actions</span>
+        </div>
+
+        @if (type() === 'category') {
+          <ul class="tree" role="tree" aria-label="Categories, tasks and sub-tasks">
+            <ng-container [ngTemplateOutlet]="catTpl" [ngTemplateOutletContext]="{ $implicit: categoryRoot(), depth: 0 }" />
+          </ul>
+        } @else {
+          <ul class="tree" role="tree" [attr.aria-label]="'Tasks by ' + type()">
+            @for (s of sections(); track s.key; let i = $index) {
+              <li class="card" role="treeitem" [attr.aria-expanded]="isOpen('s' + s.key)" [style.--i]="i">
+                <button type="button" class="rowbtn rootrow" (click)="toggle('s' + s.key)">
+                  <app-icon name="chevron" [small]="true" class="chev" [class.shut]="!isOpen('s' + s.key)" />
+                  @if (s.icon) { <span class="gicon"><app-icon [name]="s.icon" [small]="true" /></span> }
+                  @else { <span class="hash" [style.--pc]="'var(--proj-' + (s.color ?? 'charcoal') + ')'">#</span> }
+                  <span class="rname">{{ s.name }}</span>
+                  <span class="n">{{ s.count }}</span>
+                </button>
+                <div class="kids" [class.shut]="!isOpen('s' + s.key)">
+                  <div class="kids-inner">
+                    <ng-container [ngTemplateOutlet]="bucketTpl" [ngTemplateOutletContext]="{ $implicit: s.bucket }" />
+                  </div>
+                </div>
+              </li>
+            } @empty {
+              <li class="empty"><p class="big">{{ filtering() ? 'No tasks match' : 'Nothing to show yet' }}</p>
+                <p class="muted">{{ filtering() ? 'Try another search or clear the filters.' : 'Add tasks and they appear here.' }}</p></li>
+            }
+          </ul>
+        }
+      </div>
+    </div>
+  }
+</div>
+
+<!-- A category: its name, then block A (its tasks) and block B (its sub-categories). -->
+<ng-template #catTpl let-c let-depth="depth">
+  <li class="cat" [class.card]="depth <= 1" role="treeitem" [attr.aria-expanded]="isOpen(c.key)">
+    <button type="button" class="rowbtn rootrow" [class.top]="depth === 0" (click)="toggle(c.key)">
+      <app-icon name="chevron" [small]="true" class="chev" [class.shut]="!isOpen(c.key)" />
+      @if (c.category) { <span class="hash" [style.--pc]="'var(--proj-' + c.color + ')'"><app-icon name="category" [small]="true" /></span> }
+      @else { <span class="hash rootmark"><app-icon name="tree" [small]="true" /></span> }
+      <span class="rname">{{ c.name }}</span>
+      <span class="n">{{ c.count }}</span>
+    </button>
+    <div class="kids" [class.shut]="!isOpen(c.key)">
+      <div class="kids-inner">
+        <div class="block">
+          <div class="bhead"><span class="bicon a"><app-icon name="check" [small]="true" /></span>Tasks<span class="bn">{{ c.bucket.nodes.length }}</span></div>
+          <ng-container [ngTemplateOutlet]="bucketTpl" [ngTemplateOutletContext]="{ $implicit: c.bucket }" />
+        </div>
+        @if (c.children.length) {
+          <div class="block">
+            <div class="bhead"><span class="bicon b"><app-icon name="category" [small]="true" /></span>Categories<span class="bn">{{ c.children.length }}</span></div>
+            <ul role="group" class="subcats">
+              @for (k of c.children; track k.key) {
+                <ng-container [ngTemplateOutlet]="catTpl" [ngTemplateOutletContext]="{ $implicit: k, depth: depth + 1 }" />
+              }
+            </ul>
+          </div>
+        }
+      </div>
+    </div>
+  </li>
+</ng-template>
+
+<!-- One drop list of top-level tasks -->
+<ng-template #bucketTpl let-b>
+  <ul class="bucket" role="group" cdkDropList [id]="'tv-' + b.key" [cdkDropListConnectedTo]="listIds()" [cdkDropListData]="b" (cdkDropListDropped)="drop($event)" [attr.aria-label]="bucketLabel(b)">
+    @for (n of b.nodes; track n.task.id; let j = $index) {
+      <li class="leaf" role="treeitem" cdkDrag [cdkDragData]="n" [style.--i]="j" [attr.aria-expanded]="n.children.length ? isOpen('t' + n.task.id) : null">
+        <ng-container [ngTemplateOutlet]="rowTpl" [ngTemplateOutletContext]="{ $implicit: n, top: true }" />
+        <!-- Declared inside the draggable item so its grip is that item's drag handle. -->
+        <ng-template #rowTpl let-n let-top="top">
+          <div class="trow" [class.hit]="isHit(n.task)">
+            @if (top) { <span class="grip" cdkDragHandle title="Drag to move"><app-icon name="grip" [small]="true" /></span> }
+            @else { <span class="grip-space"></span> }
+            @if (n.children.length) {
+              <button type="button" class="ibtn tog" [attr.aria-label]="(isOpen('t' + n.task.id) ? 'Collapse ' : 'Expand ') + n.task.title" (click)="toggle('t' + n.task.id)">
+                <app-icon name="chevron" [small]="true" class="chev" [class.shut]="!isOpen('t' + n.task.id)" />
+              </button>
+            } @else { <span class="tog-space"></span> }
+            <button type="button" class="check" [class]="'check p' + n.task.priority" role="checkbox" aria-checked="false"
+                    [attr.aria-label]="'Complete ' + n.task.title" (click)="actions.toggleComplete(n.task)">
+              <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+            </button>
+            @let tkey = n.task.id + ':title';
+            <span class="cell title" tabindex="0" [class.open]="openCell() === tkey" [title]="'Task: ' + n.task.title"
+                  (click)="toggleCell(tkey)" (blur)="closeCell(tkey)" (keydown.enter)="store.openTaskId.set(n.task.id)">
+              <span class="val">@if (openCell() === tkey) { <small class="cap">Task</small> }{{ n.task.title }}</span>
+              @if (n.descendants) { <span class="sub">{{ n.descendants }}</span> }
+            </span>
+            @for (col of columns(); track col.key) {
+              @let v = cell(n.task, col.key);
+              @let key = n.task.id + ':' + col.key;
+              <span class="cell" [class]="'cell ' + (v.tone ?? '')" [class.open]="openCell() === key" [style.width.px]="col.width" tabindex="0"
+                    [title]="col.label + (v.text ? ': ' + v.text : ': none')" (click)="toggleCell(key)" (blur)="closeCell(key)">
+                <span class="val">
+                  @if (openCell() === key) { <small class="cap">{{ col.label }}</small> }
+                  @if (v.color) { <span class="cdot" [style.background]="'var(--proj-' + v.color + ')'"></span> }
+                  {{ v.text || '—' }}
+                </span>
+              </span>
+            }
+            <span class="acts">
+              <button type="button" class="ibtn" [attr.aria-label]="'Open ' + n.task.title" title="Open" (click)="store.openTaskId.set(n.task.id)"><app-icon name="edit" [small]="true" /></button>
+              <button type="button" class="ibtn" [attr.aria-label]="'Delete ' + n.task.title" title="Delete" (click)="actions.remove(n.task)"><app-icon name="trash" [small]="true" /></button>
+            </span>
+          </div>
+          @if (n.children.length) {
+            <div class="kids" [class.shut]="!isOpen('t' + n.task.id)">
+              <div class="kids-inner">
+                <ul role="group" class="subtasks">
+                  @for (c of n.children; track c.task.id; let k = $index) {
+                    <li class="leaf" role="treeitem" [style.--i]="k" [attr.aria-expanded]="c.children.length ? isOpen('t' + c.task.id) : null">
+                      <ng-container [ngTemplateOutlet]="rowTpl" [ngTemplateOutletContext]="{ $implicit: c, top: false }" />
+                    </li>
+                  }
+                </ul>
+              </div>
+            </div>
+          }
+        </ng-template>
+      </li>
+    } @empty {
+      <li class="drop-here muted">Drop tasks here</li>
+    }
+  </ul>
+</ng-template>
+

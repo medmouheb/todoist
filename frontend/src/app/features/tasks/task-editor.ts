@@ -72,8 +72,9 @@ const NO_DUE: Due = { date: null, time: null, duration: null, recurrence: null }
             @else { <app-icon name="category" [small]="true" />Category }
           </button>
           <button type="button" (click)="categoryId.set(null)"><app-icon name="close" [small]="true" />No category</button>
-          @for (c of store.categories(); track c.id) {
-            <button type="button" role="menuitemradio" [attr.aria-checked]="categoryId() === c.id" (click)="categoryId.set(c.id)">
+          @for (o of store.categoryTree(); track o.category.id) {
+            @let c = o.category;
+            <button type="button" role="menuitemradio" [attr.aria-checked]="categoryId() === c.id" (click)="categoryId.set(c.id)" [style.padding-left.px]="10 + o.depth * 14">
               <span class="cdot" [style.background]="'var(--proj-' + c.color + ')'"></span>{{ c.name }}
             </button>
           } @empty { <span class="hint pad-s">No categories yet. Add one from the sidebar.</span> }

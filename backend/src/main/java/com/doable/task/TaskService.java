@@ -70,10 +70,13 @@ public class TaskService {
     private final UserRepository users;
     private final NotificationService notifications;
     private final ActivityService activity;
+    private final TaskConditionRepository conditions;
 
     public TaskService(TaskRepository tasks, ProjectService projects, ProjectRepository projectRepo, ProjectAccess access,
                        LabelService labels, CommentRepository comments, CategoryRepository categories,
-                       UserRepository users, NotificationService notifications, ActivityService activity) {
+                       UserRepository users, NotificationService notifications, ActivityService activity,
+                       TaskConditionRepository conditions) {
+        this.conditions = conditions;
         this.tasks = tasks;
         this.projects = projects;
         this.projectRepo = projectRepo;
@@ -178,13 +181,13 @@ public class TaskService {
         t.setRecurrence(Recurrence.normalize(req.recurrence()));
         t.setDueDate(req.dueDate() == null && t.getRecurrence() != null
                 ? Recurrence.advance(t.getRecurrence(), null, LocalDate.now()) : req.dueDate());
-        if (t.getDueDate() != null) {
-            t.setDueTime(req.dueTime());
-            t.setDurationMinutes(req.durationMinutes());
-        }
+        if (t.getDueDate() != null) t.setDueTime(req.dueTime());
+        // The duration is an estimate, so it doesn’t need a date.
+        t.setDurationMinutes(req.durationMinutes());
         if (req.labels() != null) t.getLabels().addAll(labels.resolve(userId, req.labels()));
         if (req.categoryId() != null) t.setCategoryId(ownCategory(userId, req.categoryId()).getId());
         t.setDeadline(req.deadline());
+        if (t.getCategoryId() != null) t.setCategoryPosition(tasks.nextCategoryPosition(t.getCategoryId()));
         t.setPosition(tasks.countInProject(projectId));
         tasks.save(t);
         if (req.assigneeId() != null) assign(userId, t, req.assigneeId());
@@ -222,7 +225,6 @@ public class TaskService {
         if (Boolean.TRUE.equals(req.clearDueDate())) {
             t.setDueDate(null);
             t.setDueTime(null);
-            t.setDurationMinutes(null);
             t.setRecurrence(null);
         } else {
             if (req.recurrence() != null) {
@@ -236,16 +238,21 @@ public class TaskService {
             }
             if (req.dueTime() != null) t.setDueTime(req.dueTime());
             if (Boolean.TRUE.equals(req.clearDueTime())) t.setDueTime(null);
-            if (req.durationMinutes() != null) t.setDurationMinutes(req.durationMinutes());
-            if (Boolean.TRUE.equals(req.clearDuration())) t.setDurationMinutes(null);
         }
+        if (req.durationMinutes() != null) t.setDurationMinutes(req.durationMinutes());
+        if (Boolean.TRUE.equals(req.clearDuration())) t.setDurationMinutes(null);
 
         if (req.labels() != null) {
             t.getLabels().clear();
             t.getLabels().addAll(labels.resolve(userId, req.labels()));
         }
+        Long oldCategory = t.getCategoryId();
         if (Boolean.TRUE.equals(req.clearCategory())) t.setCategoryId(null);
         else if (req.categoryId() != null) t.setCategoryId(ownCategory(userId, req.categoryId()).getId());
+        // A task moved to another category goes to the end of it.
+        if (t.getCategoryId() != null && !t.getCategoryId().equals(oldCategory)) {
+            t.setCategoryPosition(tasks.nextCategoryPosition(t.getCategoryId()));
+        }
         if (Boolean.TRUE.equals(req.clearDeadline())) t.setDeadline(null);
         else if (req.deadline() != null) t.setDeadline(req.deadline());
 
@@ -268,6 +275,7 @@ public class TaskService {
             t.setDeadlineMissedAt(null);
         }
 
+        t.touch();
         recordUpdate(userId, t, before, wasCompleted, fromProject, req.completed());
         return toResponse(t);
     }
@@ -296,6 +304,93 @@ public class TaskService {
         Task parent = first.getParentId() == null ? null : tasks.findById(first.getParentId()).orElse(null);
         activity.record(userId, first.getProjectId(), parent == null ? null : parent.getId(),
                 parent == null ? null : parent.getTitle(), Action.REORDERED, null);
+    }
+
+    /** Saves the order of tasks inside one category (null = tasks without a category). */
+    @Transactional
+    public void reorderInCategory(Long userId, Long categoryId, List<Long> ids) {
+        if (categoryId != null) ownCategory(userId, categoryId);
+        List<Task> found = tasks.findAllById(ids);
+        for (Task t : found) {
+            if (t.getDeletedAt() != null || !Objects.equals(t.getCategoryId(), categoryId)) throw new NotFoundException("Task");
+            access.require(userId, t.getProjectId(), Role.MEMBER);
+        }
+        Map<Long, Task> byId = found.stream().collect(Collectors.toMap(Task::getId, Function.identity()));
+        for (int i = 0; i < ids.size(); i++) {
+            Task t = byId.get(ids.get(i));
+            if (t != null) t.setCategoryPosition(i);
+        }
+    }
+
+    // ---- conditions of doing ----
+
+    /** Adds a condition (another task first, a time window, a place, a person, a state). */
+    @Transactional
+    public TaskResponse addCondition(Long userId, Long taskId, TaskDtos.ConditionRequest req) {
+        Task t = visible(userId, taskId);
+        access.require(userId, t.getProjectId(), Role.MEMBER);
+        if (conditions.countByTaskId(taskId) >= 20) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A task can have at most 20 conditions.");
+        }
+        Map<String, Object> before = snapshot(t);
+        TaskCondition c = new TaskCondition(taskId, req.type(), conditions.countByTaskId(taskId));
+        switch (req.type()) {
+            case AFTER -> {
+                if (req.afterTaskId() == null) throw bad("Pick the task that has to be done first.");
+                Task other = visible(userId, req.afterTaskId());
+                if (other.getId().equals(taskId) || dependsOn(other.getId(), taskId)) {
+                    throw bad("That would make the two tasks wait for each other.");
+                }
+                c.setAfterTaskId(other.getId());
+            }
+            case TIME -> {
+                if (req.startTime() == null && req.endTime() == null) throw bad("Give the time window a start or an end.");
+                c.setStartTime(req.startTime());
+                c.setEndTime(req.endTime());
+            }
+            default -> {
+                if (req.value() == null || req.value().isBlank()) throw bad("Describe the condition.");
+                c.setValue(req.value().trim());
+            }
+        }
+        conditions.save(c);
+        t.touch();
+        activity.record(userId, t.getProjectId(), t.getId(), t.getTitle(), Action.UPDATED, ActivityService.diff(before, snapshot(t)));
+        return toResponse(t);
+    }
+
+    @Transactional
+    public TaskResponse removeCondition(Long userId, Long taskId, Long conditionId) {
+        Task t = visible(userId, taskId);
+        access.require(userId, t.getProjectId(), Role.MEMBER);
+        TaskCondition c = conditions.findById(conditionId).filter(x -> x.getTaskId().equals(taskId))
+                .orElseThrow(() -> new NotFoundException("Condition"));
+        Map<String, Object> before = snapshot(t);
+        conditions.delete(c);
+        conditions.flush();
+        t.touch();
+        activity.record(userId, t.getProjectId(), t.getId(), t.getTitle(), Action.UPDATED, ActivityService.diff(before, snapshot(t)));
+        return toResponse(t);
+    }
+
+    /** True if task waits (directly or through others) for target. */
+    private boolean dependsOn(Long task, Long target) {
+        List<Long> todo = new ArrayList<>(List.of(task));
+        java.util.Set<Long> seen = new HashSet<>();
+        while (!todo.isEmpty()) {
+            Long x = todo.removeLast();
+            if (!seen.add(x)) continue;
+            for (TaskCondition c : conditions.findByTaskIdOrderByPositionAscIdAsc(x)) {
+                if (c.getAfterTaskId() == null) continue;
+                if (c.getAfterTaskId().equals(target)) return true;
+                todo.add(c.getAfterTaskId());
+            }
+        }
+        return false;
+    }
+
+    private static ResponseStatusException bad(String message) {
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
     }
 
     /** Soft delete with its sub-tasks; {@link #restore} undoes it. */
@@ -335,7 +430,7 @@ public class TaskService {
 
     // ---- history ----
 
-    /** The fields people see, as readable values, so the history can show "before → after". */
+    /** The fields people see, as readable values, so the history can show "before â after". */
     private Map<String, Object> snapshot(Task t) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("title", t.getTitle());
@@ -350,6 +445,10 @@ public class TaskService {
         m.put("assignee", t.getAssigneeId() == null ? null : users.findById(t.getAssigneeId()).map(User::getName).orElse(null));
         m.put("labels", t.getLabels().isEmpty() ? null : t.getLabels().stream().map(Label::getName).sorted().collect(Collectors.joining(", ")));
         m.put("category", t.getCategoryId() == null ? null : categories.findById(t.getCategoryId()).map(Category::getName).orElse(null));
+        List<TaskCondition> cs = t.getId() == null ? List.of() : conditions.findByTaskIdOrderByPositionAscIdAsc(t.getId());
+        m.put("conditions", cs.isEmpty() ? null : cs.stream()
+                .map(c -> c.describe(c.getAfterTaskId() == null ? null : tasks.findById(c.getAfterTaskId()).map(Task::getTitle).orElse(null)))
+                .collect(Collectors.joining(", ")));
         return m;
     }
 
@@ -386,7 +485,7 @@ public class TaskService {
 
     private Category ownCategory(Long userId, Long categoryId) {
         return categories.findByIdAndOwnerId(categoryId, userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "That category isn’t one of yours."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "That category isnât one of yours."));
     }
 
     private void complete(Task t, boolean completed, LocalDate today) {
@@ -449,8 +548,8 @@ public class TaskService {
 
     private static void validateRecurrence(String rule) {
         if (!Recurrence.isValid(rule)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "“" + rule + "” isn't a repeat Doable understands. "
-                    + "Try “every day”, “every weekday”, “every monday” or “every 2 weeks”.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "â" + rule + "â isn't a repeat Doable understands. "
+                    + "Try âevery dayâ, âevery weekdayâ, âevery mondayâ or âevery 2 weeksâ.");
         }
     }
 
@@ -481,6 +580,12 @@ public class TaskService {
         List<Long> categoryIds = list.stream().map(Task::getCategoryId).filter(Objects::nonNull).distinct().toList();
         Map<Long, Category> cats = categoryIds.isEmpty() ? Map.of() : categories.findAllById(categoryIds).stream()
                 .collect(Collectors.toMap(Category::getId, Function.identity()));
+        Map<Long, List<TaskCondition>> conds = conditions.findByTaskIdInOrderByPositionAscIdAsc(ids).stream()
+                .collect(Collectors.groupingBy(TaskCondition::getTaskId));
+        List<Long> afterIds = conds.values().stream().flatMap(List::stream).map(TaskCondition::getAfterTaskId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, Task> afters = afterIds.isEmpty() ? Map.of() : tasks.findAllById(afterIds).stream()
+                .collect(Collectors.toMap(Task::getId, Function.identity()));
         return list.stream().map(t -> {
             int[] s = subs.getOrDefault(t.getId(), new int[]{0, 0});
             Category c = t.getCategoryId() == null ? null : cats.get(t.getCategoryId());
@@ -491,7 +596,16 @@ public class TaskService {
                     t.getLabels().stream().sorted(Comparator.comparing(Label::getName, String.CASE_INSENSITIVE_ORDER))
                             .map(l -> new LabelRef(l.getId(), l.getName(), l.getColor())).toList(),
                     s[0], s[1], commentCounts.getOrDefault(t.getId(), 0L).intValue(),
-                    c == null ? null : new CategoryRef(c.getId(), c.getName(), c.getColor()), t.getDeadline());
+                    c == null ? null : new CategoryRef(c.getId(), c.getName(), c.getColor()), t.getDeadline(),
+                    t.getUpdatedAt(), t.getCategoryPosition(),
+                    conds.getOrDefault(t.getId(), List.of()).stream().map(x -> {
+                        Task after = x.getAfterTaskId() == null ? null : afters.get(x.getAfterTaskId());
+                        // A deleted task no longer holds anything up.
+                        boolean met = after == null || after.isCompleted() || after.getDeletedAt() != null;
+                        String title = after == null ? null : after.getTitle();
+                        return new TaskDtos.ConditionRef(x.getId(), x.getType(), x.getValue(), x.getAfterTaskId(), title,
+                                x.getStartTime(), x.getEndTime(), x.describe(title), met);
+                    }).toList());
         }).toList();
     }
 
