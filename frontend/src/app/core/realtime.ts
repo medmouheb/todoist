@@ -42,8 +42,14 @@ export class Realtime {
 
     es.addEventListener('notification', (e) => this.zone.run(() => {
       const n = JSON.parse((e as MessageEvent).data) as LiveNotification;
+      if (n.type === 'UNLOCK_REQUEST' && n.taskId) this.store.unlockRequests.update((m) => new Map(m).set(n.taskId!, n.message));
       this.store.loadNotifications();
       this.store.toastNotification(n);
+    }));
+
+    // Someone started or stopped editing a task.
+    es.addEventListener('lock', (e) => this.zone.run(() => {
+      this.store.lockEvent.set(JSON.parse((e as MessageEvent).data));
     }));
 
     es.addEventListener('changed', () => this.zone.run(() => {

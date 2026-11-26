@@ -27,9 +27,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class TaskController {
 
     private final TaskService tasks;
+    private final TaskLockService locks;
 
-    public TaskController(TaskService tasks) {
+    public TaskController(TaskService tasks, TaskLockService locks) {
         this.tasks = tasks;
+        this.locks = locks;
     }
 
     /**
@@ -80,6 +82,34 @@ public class TaskController {
     @DeleteMapping("/{id}/conditions/{conditionId}")
     public TaskResponse removeCondition(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id, @PathVariable Long conditionId) {
         return tasks.removeCondition(CurrentUser.id(jwt), id, conditionId);
+    }
+
+    // ---- editing locks ----
+
+    public record UnlockRequest(@jakarta.validation.constraints.Size(max = 300) String message) {
+    }
+
+    /** Takes or renews the editing lock (call every 30 s while editing); says who holds it. */
+    @PostMapping("/{id}/lock")
+    public TaskLockService.LockState lock(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        return locks.acquire(CurrentUser.id(jwt), id);
+    }
+
+    @GetMapping("/{id}/lock")
+    public TaskLockService.LockState lockState(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        return locks.state(CurrentUser.id(jwt), id);
+    }
+
+    @DeleteMapping("/{id}/lock")
+    public TaskLockService.LockState unlock(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        return locks.release(CurrentUser.id(jwt), id);
+    }
+
+    /** Asks whoever is editing the task to unlock it. */
+    @PostMapping("/{id}/lock/request")
+    public TaskLockService.LockState requestUnlock(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+                                                   @Valid @RequestBody(required = false) UnlockRequest req) {
+        return locks.requestUnlock(CurrentUser.id(jwt), id, req == null ? null : req.message());
     }
 
     /** Completed tasks, newest first; all projects unless projectId is given. */

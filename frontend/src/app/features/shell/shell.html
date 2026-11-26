@@ -105,6 +105,7 @@
       </div>
       <a class="nav manage" routerLink="/categories" routerLinkActive="on"><app-icon name="category" [small]="true" /><span>Manage categories</span></a>
     }
+    <a class="nav manage" routerLink="/hashtags" routerLinkActive="on"><app-icon name="tag" [small]="true" /><span>Manage hashtags</span></a>
 
     @if (store.archivedProjects().length) {
       <button type="button" class="cap row toggle" [attr.aria-expanded]="archivedOpen()" (click)="archivedOpen.set(!archivedOpen())">

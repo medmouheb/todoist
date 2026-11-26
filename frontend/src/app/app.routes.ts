@@ -28,6 +28,7 @@ export const routes: Routes = [
       { path: 'prioritize', loadComponent: () => import('./features/helpers/prioritize-page').then((m) => m.PrioritizePage) },
       { path: 'plan', loadComponent: () => import('./features/helpers/plan-page').then((m) => m.PlanPage) },
       { path: 'fill-in', loadComponent: () => import('./features/helpers/fill-in-page').then((m) => m.FillInPage) },
+      { path: 'hashtags', loadComponent: () => import('./features/labels/hashtags-page').then((m) => m.HashtagsPage) },
       { path: 'categories', loadComponent: () => import('./features/categories/categories-page').then((m) => m.CategoriesPage) },
       { path: 'history', loadComponent: () => import('./features/tasks/history-page').then((m) => m.HistoryPage) },
       { path: 'completed', loadComponent: () => import('./features/tasks/completed-page').then((m) => m.CompletedPage) },

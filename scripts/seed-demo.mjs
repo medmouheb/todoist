@@ -262,6 +262,10 @@ async function extras(token) {
   await add('Morning run', { type: 'TIME', startTime: '06:30', endTime: '08:00' });
   await add('Book dentist appointment', { type: 'TIME', startTime: '08:00', endTime: '12:00' });
   await add('Webinar with a client', { type: 'PERSON', value: 'Omar' });
+
+  // A few hashtags that mean the same thing, for the hashtag manager to point out.
+  const labels = (await api('GET', '/labels')).map((l) => l.name);
+  for (const name of ['urgent', 'asap', 'desing']) if (!labels.includes(name)) await api('POST', '/labels', { name });
 }
 
 main().catch((e) => {

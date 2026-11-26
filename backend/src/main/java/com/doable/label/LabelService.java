@@ -17,11 +17,19 @@ public class LabelService {
         this.labels = labels;
     }
 
-    /** Labels can be created just by typing them ("@errands"), so unknown names are created on the spot. */
+    /**
+     * Labels can be created just by typing them ("@errands"), so unknown names are created on the spot,
+     * unless one of yours is the same word written another way ("Errand", "errands", "érrands"):
+     * then that one is used, so the same idea doesn't end up with several hashtags.
+     */
     @Transactional
     public Label findOrCreate(Long ownerId, String rawName) {
-        String name = rawName.trim().replaceFirst("^@", "");
-        return labels.findByOwnerIdAndNameIgnoreCase(ownerId, name).orElseGet(() ->
+        String name = rawName.trim().replaceFirst("^[@#]", "");
+        String norm = LabelMeaning.normalize(name);
+        return labels.findByOwnerIdAndNameIgnoreCase(ownerId, name)
+                .or(() -> labels.findByOwnerIdOrderByNameAsc(ownerId).stream()
+                        .filter(l -> !norm.isEmpty() && LabelMeaning.normalize(l.getName()).equals(norm)).findFirst())
+                .orElseGet(() ->
                 labels.save(new Label(ownerId, name, COLORS[Math.floorMod(name.toLowerCase().hashCode(), COLORS.length)])));
     }
 

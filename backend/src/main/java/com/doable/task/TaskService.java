@@ -71,12 +71,17 @@ public class TaskService {
     private final NotificationService notifications;
     private final ActivityService activity;
     private final TaskConditionRepository conditions;
+    private final TaskLockService locks;
+    private final com.doable.project.ProjectMemberRepository members;
 
     public TaskService(TaskRepository tasks, ProjectService projects, ProjectRepository projectRepo, ProjectAccess access,
                        LabelService labels, CommentRepository comments, CategoryRepository categories,
                        UserRepository users, NotificationService notifications, ActivityService activity,
-                       TaskConditionRepository conditions) {
+                       TaskConditionRepository conditions, TaskLockService locks,
+                       com.doable.project.ProjectMemberRepository members) {
         this.conditions = conditions;
+        this.locks = locks;
+        this.members = members;
         this.tasks = tasks;
         this.projects = projects;
         this.projectRepo = projectRepo;
@@ -198,6 +203,7 @@ public class TaskService {
     @Transactional
     public TaskResponse update(Long userId, Long id, UpdateTaskRequest req) {
         Task t = visible(userId, id);
+        locks.check(userId, id);
         Role role = access.role(userId, t.getProjectId());
         boolean onlyCompleting = req.completed() != null && req.title() == null && req.description() == null
                 && req.priority() == null && req.dueDate() == null && req.dueTime() == null
@@ -331,6 +337,7 @@ public class TaskService {
     @Transactional
     public TaskResponse addCondition(Long userId, Long taskId, TaskDtos.ConditionRequest req) {
         Task t = visible(userId, taskId);
+        locks.check(userId, taskId);
         access.require(userId, t.getProjectId(), Role.MEMBER);
         if (conditions.countByTaskId(taskId) >= 20) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A task can have at most 20 conditions.");
@@ -365,6 +372,7 @@ public class TaskService {
     @Transactional
     public TaskResponse removeCondition(Long userId, Long taskId, Long conditionId) {
         Task t = visible(userId, taskId);
+        locks.check(userId, taskId);
         access.require(userId, t.getProjectId(), Role.MEMBER);
         TaskCondition c = conditions.findById(conditionId).filter(x -> x.getTaskId().equals(taskId))
                 .orElseThrow(() -> new NotFoundException("Condition"));
@@ -396,10 +404,18 @@ public class TaskService {
         return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
     }
 
-    /** Soft delete with its sub-tasks; {@link #restore} undoes it. */
+    /**
+     * Soft delete with its sub-tasks; {@link #restore} undoes it. In a shared project only admins
+     * can delete: everyone else can read and change shared tasks, but not remove them.
+     */
     @Transactional
     public void delete(Long userId, Long id) {
         Task t = visible(userId, id);
+        locks.check(userId, id);
+        boolean shared = members.forProject(t.getProjectId()).size() > 1;
+        if (shared && access.role(userId, t.getProjectId()) != Role.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the project's admins can delete tasks in a shared project.");
+        }
         access.require(userId, t.getProjectId(), Role.MEMBER);
         Instant now = Instant.now();
         List<Task> all = subtree(t);

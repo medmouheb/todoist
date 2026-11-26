@@ -27,7 +27,7 @@
     }
   </div>
 
-  <app-task-toolbar [(filter)]="filter" [(open)]="filtersOpen" [showGroup]="false" />
+  <app-task-toolbar [(filter)]="filter" [(sort)]="sort" [(open)]="filtersOpen" [showGroup]="false" />
   <p class="hint">Drag a task by its grip into another group to change its {{ type() === 'label' ? 'hashtag' : type() === 'due' ? 'date' : type() }}.
     Click a cell to see all of it.</p>
 
@@ -146,7 +146,9 @@
             }
             <span class="acts">
               <button type="button" class="ibtn" [attr.aria-label]="'Open ' + n.task.title" title="Open" (click)="store.openTaskId.set(n.task.id)"><app-icon name="edit" [small]="true" /></button>
-              <button type="button" class="ibtn" [attr.aria-label]="'Delete ' + n.task.title" title="Delete" (click)="actions.remove(n.task)"><app-icon name="trash" [small]="true" /></button>
+              @if (store.canDelete(n.task.projectId)) {
+                <button type="button" class="ibtn" [attr.aria-label]="'Delete ' + n.task.title" title="Delete" (click)="actions.remove(n.task)"><app-icon name="trash" [small]="true" /></button>
+              }
             </span>
           </div>
           @if (n.children.length) {

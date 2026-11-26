@@ -1,12 +1,12 @@
 import { CdkDrag, CdkDragDrop, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
-import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, HostListener, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api, errorMessage } from '../../core/api';
 import { Auth } from '../../core/auth';
 import { dueChip, formatDuration, timeAgo } from '../../core/dates';
 import { ConditionsEditor } from './conditions-editor';
 import { Icon } from '../../core/icon';
-import { Comment, HistoryEntry, Member, Priority, Task } from '../../core/models';
+import { Comment, HistoryEntry, LockState, Member, Priority, Task } from '../../core/models';
 import { Store, indent } from '../../core/store';
 import { TaskActions, dueOf } from '../../core/task-actions';
 import { DatePicker } from '../../shared/date-picker';
@@ -49,9 +49,23 @@ export class TaskDetail {
     const t = this.task();
     return t ? this.store.project(t.projectId) : undefined;
   });
-  protected readonly canEdit = computed(() => this.project()?.role !== 'GUEST' && !this.project()?.archived);
+  /** Allowed to edit by role, whether or not someone else is editing right now. */
+  private readonly mayEdit = computed(() => this.project()?.role !== 'GUEST' && !this.project()?.archived);
+  /** In a shared project, opening a task locks it for the others while you edit. */
+  protected readonly lock = signal<LockState | null>(null);
+  protected readonly lockedByOther = computed(() => !!this.lock()?.holderId && !this.lock()!.mine);
+  protected readonly canEdit = computed(() => this.mayEdit() && !this.lockedByOther());
+  protected readonly canDelete = computed(() => this.canEdit() && !!this.task() && this.store.canDelete(this.task()!.projectId));
   protected readonly canComplete = computed(() =>
-    this.canEdit() || this.task()?.assignee?.id === this.auth.user()?.id);
+    !this.lockedByOther() && (this.canEdit() || this.task()?.assignee?.id === this.auth.user()?.id));
+  /** Someone asked you to unlock this task. */
+  protected readonly unlockAsk = computed(() => {
+    const t = this.task();
+    return t && this.lock()?.mine ? this.store.unlockRequests().get(t.id) ?? null : null;
+  });
+  protected readonly asked = signal(false);
+  protected unlockMessage = '';
+  private lockTimer: ReturnType<typeof setInterval> | null = null;
   protected readonly me = computed(() => this.auth.user());
   protected readonly dueText = computed(() => {
     const t = this.task();
@@ -68,6 +82,30 @@ export class TaskDetail {
     this.members().filter((m) => m.userId !== this.me()?.id).map((m) => '@' + m.name.split(/\s+/)[0]).join(', '));
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => this.stopLocking());
+    // Someone started or stopped editing the open task.
+    effect(() => {
+      const e = this.store.lockEvent();
+      untracked(() => {
+        const t = this.task();
+        if (!e || !t || e.taskId !== t.id) return;
+        if (e.holderId === null) {
+          // Freed: if we were waiting, take it now and show the latest version.
+          if (this.lockedByOther() && this.mayEdit()) {
+            this.api.lockTask(t.id).subscribe({
+              next: (s) => {
+                this.lock.set(s);
+                this.asked.set(false);
+                if (s.mine) this.load(t.id);
+              },
+              error: () => {},
+            });
+          }
+        } else if (e.holderId !== this.auth.user()?.id) {
+          this.lock.set({ taskId: t.id, holderId: e.holderId, holderName: e.holderName, mine: false, expiresAt: null });
+        }
+      });
+    });
     // Load whenever another task is opened, or something changes while it's open.
     effect(() => {
       const id = this.store.openTaskId();
@@ -77,6 +115,63 @@ export class TaskDetail {
   }
 
   private loadedId: number | null = null;
+
+  // ---- editing lock ----
+
+  /** Takes the lock (or learns who has it) and keeps renewing it while the panel is open. */
+  private startLocking(t: Task): void {
+    const p = this.store.project(t.projectId);
+    if (!p || p.memberCount <= 1 || !this.mayEdit()) return;
+    const take = () => this.api.lockTask(t.id).subscribe({
+      next: (s) => this.loadedId === t.id && this.lock.set(s),
+      error: () => {},
+    });
+    take();
+    this.lockTimer = setInterval(take, 30_000);
+  }
+
+  /** Frees the task for the others (when closing, switching task, or on request). */
+  private stopLocking(): void {
+    if (this.lockTimer) clearInterval(this.lockTimer);
+    this.lockTimer = null;
+    const s = this.lock();
+    if (s?.mine) this.api.unlockTask(s.taskId).subscribe({ error: () => {} });
+    this.lock.set(null);
+    this.asked.set(false);
+    this.unlockMessage = '';
+  }
+
+  protected askToUnlock(): void {
+    const t = this.task();
+    if (!t) return;
+    this.api.requestUnlock(t.id, this.unlockMessage.trim()).subscribe({
+      next: () => this.asked.set(true),
+      error: (err) => this.store.toast(errorMessage(err)),
+    });
+  }
+
+  /** Lets the person who asked take over: you keep reading, they get the lock. */
+  protected unlockForThem(): void {
+    const t = this.task();
+    if (!t) return;
+    if (this.lockTimer) clearInterval(this.lockTimer);
+    this.lockTimer = null;
+    this.store.unlockRequests.update((m) => {
+      const n = new Map(m);
+      n.delete(t.id);
+      return n;
+    });
+    this.api.unlockTask(t.id).subscribe({ next: (s) => this.lock.set(s), error: () => {} });
+  }
+
+  protected keepEditing(): void {
+    const t = this.task();
+    if (t) this.store.unlockRequests.update((m) => {
+      const n = new Map(m);
+      n.delete(t.id);
+      return n;
+    });
+  }
 
   private load(id: number): void {
     const fresh = id !== this.loadedId;
@@ -89,6 +184,7 @@ export class TaskDetail {
       next: (t) => {
         if (this.loadedId !== id) return;
         this.task.set(t);
+        if (fresh) this.startLocking(t);
         if (fresh || document.activeElement?.closest('.detail .ttl') == null) this.title = t.title;
         if (fresh || document.activeElement?.closest('.detail .desc') == null) this.description = t.description ?? '';
         if (t.parentId) this.api.task(t.parentId).subscribe({ next: (p) => this.parent.set(p), error: () => this.parent.set(null) });
@@ -106,6 +202,7 @@ export class TaskDetail {
   }
 
   private reset(): void {
+    this.stopLocking();
     this.loadedId = null;
     this.sentTitle = null;
     this.sentDescription = null;

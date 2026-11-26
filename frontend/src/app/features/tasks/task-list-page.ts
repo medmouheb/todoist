@@ -20,6 +20,7 @@ import {
 } from './task-filter';
 import { TaskEditor } from './task-editor';
 import { TaskRow } from './task-row';
+import { SortKey, readSort, sortTasks, writeSort } from './sort';
 
 type View = 'inbox' | 'today' | 'upcoming' | 'category';
 
@@ -91,11 +92,12 @@ export class TaskListPage {
   protected readonly mixesProjects = computed(() => !this.project());
   protected readonly isDateView = computed(() => this.view() === 'today' || this.view() === 'upcoming');
 
-  protected readonly filtered = computed(() => applyFilter(this.tasks(), this.filter(), this.auth.user()?.id));
+  protected readonly sort = signal<SortKey[]>(readSort('doable.sort.list'));
+  protected readonly filtered = computed(() => sortTasks(applyFilter(this.tasks(), this.filter(), this.auth.user()?.id), this.sort()));
   protected readonly filtering = computed(() => isFiltering(this.filter()));
   /** Drag to reorder: in lists with a manual order, when nothing hides or regroups tasks. */
   protected readonly manualOrder = computed(() =>
-    !!this.project() && this.canAdd() && !this.filtering() && this.groupBy() === 'none');
+    !!this.project() && this.canAdd() && !this.filtering() && this.groupBy() === 'none' && !this.sort().length);
   /** Upcoming is already limited to one week; other views page once more than 10 tasks match. */
   protected readonly paged = computed(() => this.view() !== 'upcoming' && this.filtered().length > PAGE_SIZE);
   protected readonly visible = computed(() => {
@@ -202,6 +204,7 @@ export class TaskListPage {
   });
 
   constructor() {
+    effect(() => writeSort('doable.sort.list', this.sort()));
     // Reload when the route changes or any task changes anywhere (including live changes by others).
     effect(() => {
       const view = this.view();

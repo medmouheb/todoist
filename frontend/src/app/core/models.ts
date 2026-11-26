@@ -247,7 +247,27 @@ export interface Comment {
 }
 
 export type NotificationType = 'INVITE' | 'INVITE_ACCEPTED' | 'INVITE_DECLINED' | 'ASSIGNED' | 'COMMENT' | 'MENTION'
-  | 'ACTIVITY' | 'REMINDER' | 'DEADLINE_SOON' | 'DEADLINE_MISSED';
+  | 'ACTIVITY' | 'REMINDER' | 'DEADLINE_SOON' | 'DEADLINE_MISSED' | 'UNLOCK_REQUEST';
+
+/** Who is editing a task right now (holderId null: nobody). */
+export interface LockState {
+  taskId: number;
+  holderId: number | null;
+  holderName: string | null;
+  mine: boolean;
+  expiresAt: string | null;
+}
+
+export interface LabelUsage extends LabelRef {
+  taskCount: number;
+}
+
+/** Two hashtags that probably mean the same; merging keeps b. */
+export interface LabelDuplicate {
+  a: LabelUsage;
+  b: LabelUsage;
+  reason: string;
+}
 
 export interface AppNotification {
   id: number;

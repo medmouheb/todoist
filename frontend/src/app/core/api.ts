@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
-  AppNotification, AuthResponse, Category, CategoryHistoryEntry, Comment, HistoryPage, Invite, LabelRef, NewCondition, NewTask, Project, ProjectColor, Role,
+  AppNotification, AuthResponse, Category, CategoryHistoryEntry, Comment, HistoryPage, Invite, LabelDuplicate, LabelRef, LabelUsage, LockState, NewCondition, NewTask, Project, ProjectColor, Role,
   Settings, Sharing, Task, TaskChanges, TaskView, User,
 } from './models';
 import { todayIso } from './dates';
@@ -145,6 +145,37 @@ export class Api {
   // ---- labels ----
   labels(): Observable<LabelRef[]> {
     return this.http.get<LabelRef[]>('/api/labels');
+  }
+  labelUsage(): Observable<LabelUsage[]> {
+    return this.http.get<LabelUsage[]>('/api/labels/usage');
+  }
+  labelDuplicates(): Observable<LabelDuplicate[]> {
+    return this.http.get<LabelDuplicate[]>('/api/labels/duplicates');
+  }
+  createLabel(name: string, color?: ProjectColor): Observable<LabelRef> {
+    return this.http.post<LabelRef>('/api/labels', { name, color });
+  }
+  updateLabel(id: number, name: string, color: ProjectColor): Observable<LabelRef> {
+    return this.http.put<LabelRef>(`/api/labels/${id}`, { name, color });
+  }
+  deleteLabel(id: number): Observable<void> {
+    return this.http.delete<void>(`/api/labels/${id}`);
+  }
+  /** Moves every task from one hashtag to another, then deletes the first. */
+  mergeLabel(id: number, intoId: number): Observable<LabelRef> {
+    return this.http.post<LabelRef>(`/api/labels/${id}/merge`, { intoId });
+  }
+
+  // ---- editing locks ----
+  /** Takes or renews the lock on a task you're editing; says who holds it. */
+  lockTask(id: number): Observable<LockState> {
+    return this.http.post<LockState>(`/api/tasks/${id}/lock`, {});
+  }
+  unlockTask(id: number): Observable<LockState> {
+    return this.http.delete<LockState>(`/api/tasks/${id}/lock`);
+  }
+  requestUnlock(id: number, message: string): Observable<LockState> {
+    return this.http.post<LockState>(`/api/tasks/${id}/lock/request`, { message });
   }
 
   // ---- tasks ----

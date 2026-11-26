@@ -55,6 +55,7 @@ const PATHS = {
   expand: '<path d="M7 9l5-5 5 5M7 15l5 5 5-5"/>',
   collapse: '<path d="M7 4l5 5 5-5M7 20l5-5 5 5"/>',
   columns: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 4.5v15M15 4.5v15"/>',
+  sort: '<path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M17 20V4M13.5 7.5L17 4l3.5 3.5"/>',
   matrix: '<rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M3.5 9.5h17M3.5 15h17M9.5 3.5v17M15 3.5v17"/>',
   plan: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4M7.5 14h4M7.5 17h7"/>',
   wand: '<path d="M4 20l11-11M14 4v3M12.5 5.5h3M19 9v3M17.5 10.5h3M18 3.5l.01 0M15 9l-1-1"/>',

@@ -9,11 +9,37 @@
           <span class="sep">/</span><button type="button" class="link" (click)="store.openTaskId.set(par.id)">{{ par.title }}</button>
         }
       </div>
-      @if (task() && canEdit()) {
+      @if (lock()?.mine) {
+        <span class="editing" title="Others can read it but not change it until you close it"><app-icon name="lock" [small]="true" />You’re editing</span>
+      }
+      @if (canDelete()) {
         <button type="button" class="ibtn" title="Delete task" (click)="actions.remove(task()!)"><app-icon name="trash" /></button>
       }
       <button type="button" class="ibtn" title="Close (Esc)" (click)="close()"><app-icon name="close" /></button>
     </header>
+
+    @if (lockedByOther()) {
+      <div class="lockbar" role="status">
+        <app-icon name="lock" [small]="true" />
+        <div class="lb-text"><b>{{ lock()!.holderName }}</b> is editing this task. You can read it and comment; it unlocks when they close it.</div>
+        @if (asked()) {
+          <span class="lb-sent">Asked to unlock ✓</span>
+        } @else {
+          <form class="lb-ask" (ngSubmit)="askToUnlock()">
+            <input class="input" name="unlockMsg" [(ngModel)]="unlockMessage" maxlength="300" placeholder="Add a message (optional)" aria-label="Message" />
+            <button type="submit" class="btn sm primary">Ask to unlock</button>
+          </form>
+        }
+      </div>
+    }
+    @if (unlockAsk(); as ask) {
+      <div class="lockbar ask" role="alert">
+        <app-icon name="bell" [small]="true" />
+        <div class="lb-text">{{ ask }}</div>
+        <button type="button" class="btn sm" (click)="keepEditing()">Keep editing</button>
+        <button type="button" class="btn sm primary" (click)="unlockForThem()">Unlock for them</button>
+      </div>
+    }
 
     @if (error()) {
       <p class="err pad">{{ error() }}</p>

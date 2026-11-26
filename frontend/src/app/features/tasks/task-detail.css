@@ -93,3 +93,15 @@ h3 { font-size: 14px; }
 .comment .av, .composer .av { width: 30px; height: 30px; font-size: 11px; }
 @media (max-width: 700px) { .detail { border-radius: 0; } }
 @media (prefers-reduced-motion: reduce) { .detail { animation: none; } }
+
+/* Editing lock */
+.editing { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--brand-ink);
+  background: var(--brand-tint); padding: 3px 10px; border-radius: 99px; margin-right: 4px; }
+.lockbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 22px; font-size: 13px;
+  background: color-mix(in srgb, #e8a33d 16%, var(--surface)); color: var(--ink); border-bottom: 1px solid var(--border);
+  animation: menu-in .2s ease-out both; }
+.lockbar.ask { background: color-mix(in srgb, var(--brand) 12%, var(--surface)); }
+.lb-text { flex: 1; min-width: 200px; }
+.lb-ask { display: flex; gap: 6px; flex: 1 1 280px; }
+.lb-ask .input { height: 32px; }
+.lb-sent { font-weight: 600; color: var(--brand-ink); }

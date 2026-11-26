@@ -31,6 +31,10 @@ export class TaskActions {
   }
 
   async remove(t: Task): Promise<void> {
+    if (!this.store.canDelete(t.projectId)) {
+      this.store.toast('Only the project’s admins can delete tasks in a shared project.');
+      return;
+    }
     const subs = t.subtaskCount ? ` and its ${t.subtaskCount} sub-task${t.subtaskCount > 1 ? 's' : ''}` : '';
     const ok = await this.store.confirm({
       title: 'Delete task?',

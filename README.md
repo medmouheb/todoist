@@ -142,10 +142,17 @@ Not built yet: sections, board and calendar layouts, saved filters, goals, onboa
 - **Drag to change.** Drag a task by its grip into another group to change that value: its category, priority, condition, duration, date, hashtag or assignee. Inside a project or category, dragging reorders.
 - Tasks also keep when they were last modified, and a duration can be set without a date (an estimate).
 
+## Working on shared tasks
+
+- **Editing locks.** In a shared project, opening a task locks it while you edit ("You're editing"). Others see who is editing, can read it and comment, but can't change it. They can **Ask to unlock** with a message; you get it live and can **Unlock for them**. Closing the task frees it, and a lock lapses by itself 90 seconds after the tab closes.
+- **Only admins delete** tasks in a shared project; everyone else can read and change them.
+
 ## Helpers
 
 - **Prioritize** (comparison matrix). Pick up to 12 tasks and answer "which matters more?" for each pair, on a 7-step scale (keys 1–7). Doable computes weights from the matrix (geometric mean of each row), shows a ranking with importance points (0–100), points out answers that go in a circle, and saves the points, optionally setting each priority from them (75+ P1, 50+ P2, 25+ P3).
 - **Plan.** Importance (from Prioritize, or the priority) and urgency (from the date and deadline: overdue 100, today 90, … none 0) sort every open task into Do first / Schedule / Fit in or hand off / Later. The plan fills the next days with the highest-scoring tasks within the hours you have, keeps each task before its deadline when it fits, leaves out tasks waiting for another one, and shows time windows and places. **Apply the plan** sets the dates.
+- **Hashtags** (sidebar, Manage hashtags). Every hashtag with how many tasks use it: rename, recolor, merge, delete. Typing a hashtag that's another one written differently (case, accents, plural: "Meetings" for #meeting) reuses it. Likely duplicates (synonyms like #asap and #urgent, typos like #desing) are listed with a one-click merge.
+- **Sort by several fields.** The Sort menu (task lists and the tree viewer) stacks levels: for example priority, then date, then importance. While a list is sorted, dragging inside it is off; dragging between groups in the tree still works.
 - **Fill in details.** Goes through tasks added in a hurry that miss a category, priority, duration or date, one card at a time, with one-tap answers.
 
 ## Layout

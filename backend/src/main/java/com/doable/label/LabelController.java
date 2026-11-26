@@ -61,14 +61,76 @@ public class LabelController {
         return LabelResponse.of(l);
     }
 
+    /** Renames or recolors. A name that is another of your hashtags written differently is refused: merge instead. */
     @PutMapping("/{id}")
     @Transactional
     public LabelResponse update(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
                                 @Valid @RequestBody LabelRequest req) {
-        Label l = repo.findByIdAndOwnerId(id, CurrentUser.id(jwt)).orElseThrow(() -> new NotFoundException("Label"));
-        l.setName(req.name().trim());
+        long owner = CurrentUser.id(jwt);
+        Label l = repo.findByIdAndOwnerId(id, owner).orElseThrow(() -> new NotFoundException("Label"));
+        String name = req.name().trim();
+        String norm = LabelMeaning.normalize(name);
+        repo.findByOwnerIdOrderByNameAsc(owner).stream()
+                .filter(o -> !o.getId().equals(id) && LabelMeaning.normalize(o.getName()).equals(norm)).findFirst()
+                .ifPresent(o -> {
+                    throw new org.springframework.web.server.ResponseStatusException(HttpStatus.CONFLICT,
+                            "#" + o.getName() + " already means the same. Merge the two instead.");
+                });
+        l.setName(name);
         if (req.color() != null) l.setColor(req.color());
         return LabelResponse.of(l);
+    }
+
+    // ---- hashtag manager ----
+
+    public record LabelUsage(Long id, String name, String color, long taskCount) {
+    }
+
+    /** Pairs of your hashtags that probably mean the same thing. */
+    public record Duplicate(LabelUsage a, LabelUsage b, String reason) {
+    }
+
+    public record MergeRequest(@jakarta.validation.constraints.NotNull Long intoId) {
+    }
+
+    /** Your hashtags with how many tasks use each. */
+    @GetMapping("/usage")
+    public List<LabelUsage> usage(@AuthenticationPrincipal Jwt jwt) {
+        long owner = CurrentUser.id(jwt);
+        java.util.Map<Long, Long> counts = repo.usage(owner);
+        return repo.findByOwnerIdOrderByNameAsc(owner).stream()
+                .map(l -> new LabelUsage(l.getId(), l.getName(), l.getColor(), counts.getOrDefault(l.getId(), 0L))).toList();
+    }
+
+    /** Likely duplicates: same word written differently, synonyms, or near-identical spelling. */
+    @GetMapping("/duplicates")
+    public List<Duplicate> duplicates(@AuthenticationPrincipal Jwt jwt) {
+        List<LabelUsage> all = usage(jwt);
+        List<Duplicate> out = new java.util.ArrayList<>();
+        for (int i = 0; i < all.size(); i++) {
+            for (int j = i + 1; j < all.size(); j++) {
+                String why = LabelMeaning.sameMeaning(all.get(i).name(), all.get(j).name());
+                if (why == null) continue;
+                // Suggest keeping the one more tasks use.
+                LabelUsage keep = all.get(i).taskCount() >= all.get(j).taskCount() ? all.get(i) : all.get(j);
+                LabelUsage drop = keep == all.get(i) ? all.get(j) : all.get(i);
+                out.add(new Duplicate(drop, keep, why));
+            }
+        }
+        return out;
+    }
+
+    /** Moves every task from this hashtag to another one, then deletes this one. */
+    @PostMapping("/{id}/merge")
+    @Transactional
+    public LabelResponse merge(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id, @Valid @RequestBody MergeRequest req) {
+        long owner = CurrentUser.id(jwt);
+        Label from = repo.findByIdAndOwnerId(id, owner).orElseThrow(() -> new NotFoundException("Label"));
+        Label into = repo.findByIdAndOwnerId(req.intoId(), owner).orElseThrow(() -> new NotFoundException("Label"));
+        if (from.getId().equals(into.getId())) return LabelResponse.of(into);
+        repo.copyTasks(from.getId(), into.getId());
+        repo.delete(from);
+        return LabelResponse.of(into);
     }
 
     @DeleteMapping("/{id}")

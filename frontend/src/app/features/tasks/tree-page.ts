@@ -11,6 +11,7 @@ import { Store } from '../../core/store';
 import { TaskActions } from '../../core/task-actions';
 import { Dropdown } from '../../shared/dropdown';
 import { COLUMNS, Cell, ColumnKey, DEFAULT_COLUMNS, cellOf } from './columns';
+import { SortKey, compareBy, readSort, writeSort } from './sort';
 import { CONDITION_TYPES, conditionIcon } from './conditions-editor';
 import { NO_FILTER, TaskFilter, TaskToolbar, applyFilter, isFiltering } from './task-filter';
 
@@ -112,6 +113,7 @@ export class TreePage {
   protected readonly filtersOpen = signal(false);
   protected readonly type = signal<ViewerType>(readStored(TYPE_KEY, 'category') as ViewerType);
   protected readonly columnKeys = signal<ColumnKey[]>(readColumns());
+  protected readonly sort = signal<SortKey[]>(readSort('doable.sort.tree'));
   /** Keys of folded rows ("c3" category, "s…" section, "t7" task). Everything starts open. */
   protected readonly closed = signal<Set<string>>(new Set());
   /** The cell showing its full text ("taskId:column"). */
@@ -137,8 +139,10 @@ export class TreePage {
     const visible = this.filtering() ? all.filter((t) => keep.has(t.id)) : all;
     const kids = new Map<number, Task[]>();
     for (const t of visible) if (t.parentId && byId.has(t.parentId)) kids.set(t.parentId, [...(kids.get(t.parentId) ?? []), t]);
+    const cmp = this.sort().length ? compareBy(this.sort()) : null;
     const build = (t: Task): Node => {
-      const children = (kids.get(t.id) ?? []).map(build);
+      const list = kids.get(t.id) ?? [];
+      const children = (cmp ? [...list].sort(cmp) : list).map(build);
       return { task: t, children, descendants: children.reduce((n, c) => n + 1 + c.descendants, 0) };
     };
     return visible.filter((t) => !t.parentId || !byId.has(t.parentId)).map(build);
@@ -151,7 +155,10 @@ export class TreePage {
       const id = n.task.category && this.store.category(n.task.category.id) ? n.task.category.id : null;
       byCat.set(id, [...(byCat.get(id) ?? []), n]);
     }
-    for (const list of byCat.values()) list.sort((a, b) => a.task.categoryPosition - b.task.categoryPosition || a.task.id - b.task.id);
+    const cmp = this.sort().length ? compareBy(this.sort()) : null;
+    for (const list of byCat.values()) {
+      list.sort((a, b) => (cmp ? cmp(a.task, b.task) : 0) || a.task.categoryPosition - b.task.categoryPosition || a.task.id - b.task.id);
+    }
     const size = (nodes: Node[]) => nodes.reduce((n, x) => n + 1 + x.descendants, 0);
     const build = (c: Category | null): CatNode => {
       const id = c?.id ?? null;
@@ -242,6 +249,10 @@ export class TreePage {
     };
     const list = [...groups.values()];
     if (type !== 'project') list.sort((a, b) => order(a).localeCompare(order(b)));
+    if (this.sort().length) {
+      const cmp = compareBy(this.sort());
+      for (const s of list) s.bucket.nodes.sort((a, b) => cmp(a.task, b.task));
+    }
     return this.filtering() ? list.filter((s) => s.count > 0) : list;
   });
 
@@ -274,6 +285,7 @@ export class TreePage {
     });
     effect(() => store(TYPE_KEY, this.type()));
     effect(() => store(COLUMNS_KEY, JSON.stringify(this.columnKeys())));
+    effect(() => writeSort('doable.sort.tree', this.sort()));
   }
 
   // ---- display ----
@@ -405,6 +417,10 @@ export class TreePage {
 
   /** Same group: saves the new order where order means something (projects and categories). */
   private reorder(b: Bucket, fromIndex: number, toIndex: number): void {
+    if (this.sort().length) {
+      this.store.toast('The tree is sorted. Clear the sort to put tasks in your own order.');
+      return;
+    }
     const t = b.target;
     if (t.kind !== 'project' && t.kind !== 'category') {
       this.store.toast('Tasks here follow the order of their project. Drag them in the Project or Category view to reorder.');

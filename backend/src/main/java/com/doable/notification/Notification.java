@@ -22,8 +22,10 @@ public class Notification {
         REMINDER,
         /** A deadline is less than a day away. */
         DEADLINE_SOON,
-        /** A deadline passed and the task isn't done. */
-        DEADLINE_MISSED
+        /** A deadline passed and the task isn’t done. */
+        DEADLINE_MISSED,
+        /** Someone asks you to unlock a task you are editing. */
+        UNLOCK_REQUEST
     }
 
     @Id
@@ -69,12 +71,12 @@ public class Notification {
         this.projectId = projectId;
         this.taskId = taskId;
         this.inviteId = inviteId;
-        this.message = message.length() > 500 ? message.substring(0, 497) + "…" : message;
+        this.message = message.length() > 500 ? message.substring(0, 497) + "â¦" : message;
     }
 
     /** Folds a newer event into this unread one instead of adding another notification. */
     public void merge(String message) {
-        this.message = message.length() > 500 ? message.substring(0, 497) + "…" : message;
+        this.message = message.length() > 500 ? message.substring(0, 497) + "â¦" : message;
         this.createdAt = Instant.now();
     }
 

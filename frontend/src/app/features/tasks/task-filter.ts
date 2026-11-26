@@ -4,6 +4,7 @@ import { addDays, dayHeading, todayIso } from '../../core/dates';
 import { Icon } from '../../core/icon';
 import { Project, Task } from '../../core/models';
 import { Store, indent } from '../../core/store';
+import { SortKey, SortMenu } from './sort';
 
 export type GroupBy = 'none' | 'category' | 'priority' | 'label' | 'project' | 'assignee' | 'due';
 export type DueFilter = 'any' | 'overdue' | 'today' | 'week' | 'none' | 'deadline';
@@ -94,7 +95,7 @@ export function groupTasks(tasks: Task[], by: GroupBy, project: (id: number) => 
 /** Search box, filters and "group by", shared by the task lists and the tree. */
 @Component({
   selector: 'app-task-toolbar',
-  imports: [FormsModule, Icon],
+  imports: [FormsModule, Icon, SortMenu],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="bar">
@@ -120,6 +121,7 @@ export function groupTasks(tasks: Task[], by: GroupBy, project: (id: number) => 
         </select>
       </label>
       }
+      <app-sort-menu [(keys)]="sort" />
     </div>
     <div class="panel" [class.shown]="open()">
       <div class="inner">
@@ -186,6 +188,8 @@ export class TaskToolbar {
   protected readonly indent = indent;
   readonly filter = model<TaskFilter>(NO_FILTER);
   readonly groupBy = model<GroupBy>('none');
+  /** Sort levels (empty: the list's own order). */
+  readonly sort = model<SortKey[]>([]);
   readonly showProjectGroup = input(true);
   readonly showGroup = input(true);
   /** What "no grouping" is called here ("Sections", "Projects"…). */

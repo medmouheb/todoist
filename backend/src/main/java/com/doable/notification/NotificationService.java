@@ -144,6 +144,14 @@ public class NotificationService {
         }
     }
 
+    /** Someone wants to edit a task you have open; their message (if any) comes along. */
+    public void unlockRequest(Long holderId, User asker, Task t, String message) {
+        String text = asker.getName() + " asks you to unlock “" + t.getTitle() + "”"
+                + (message == null ? "" : ": " + (message.length() > 200 ? message.substring(0, 197) + "…" : message));
+        save(new Notification(holderId, Type.UNLOCK_REQUEST, asker.getId(), t.getProjectId(), t.getId(), null,
+                text.length() > 500 ? text.substring(0, 499) + "…" : text));
+    }
+
     /** Reminders and deadline warnings, sent by the scheduler. */
     public void reminder(Long userId, Type type, Task t, String message) {
         save(new Notification(userId, type, null, t.getProjectId(), t.getId(), null, message));

@@ -70,7 +70,7 @@
     <div class="banner"><app-icon name="person" /><span>You’re a guest here: you can comment and complete tasks assigned to you.</span></div>
   }
 
-  <app-task-toolbar [(filter)]="filter" [(groupBy)]="groupBy" [(open)]="filtersOpen" [showProjectGroup]="mixesProjects()"
+  <app-task-toolbar [(filter)]="filter" [(groupBy)]="groupBy" [(sort)]="sort" [(open)]="filtersOpen" [showProjectGroup]="mixesProjects()"
                     [noneLabel]="isDateView() ? 'Days' : 'None'" />
 
   @if (view() === 'upcoming' && groupBy() === 'none') {

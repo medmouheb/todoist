@@ -46,6 +46,10 @@ export class Store {
 
   // Dialogs and panels opened from anywhere.
   readonly openTaskId = signal<number | null>(null);
+  /** The last "who is editing" change pushed by the server. */
+  readonly lockEvent = signal<{ taskId: number; holderId: number | null; holderName: string | null } | null>(null);
+  /** Requests to unlock tasks you're editing: task id → the request's text. */
+  readonly unlockRequests = signal(new Map<number, string>());
   readonly quickAdd = signal(false);
   readonly shareProjectId = signal<number | null>(null);
   /** The project being edited in the project dialog, or 'new'. */
@@ -71,6 +75,12 @@ export class Store {
 
   category(id: number): Category | undefined {
     return this.categories().find((c) => c.id === id);
+  }
+
+  /** In a shared project only admins delete tasks; everyone else can read and change them. */
+  canDelete(projectId: number): boolean {
+    const p = this.project(projectId);
+    return !!p && !p.archived && (p.role === 'ADMIN' || p.memberCount <= 1);
   }
 
   /** Sub-categories of parentId (null = directly under "Todos"), in their order. */
