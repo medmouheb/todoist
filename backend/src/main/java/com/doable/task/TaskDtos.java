@@ -63,7 +63,9 @@ public final class TaskDtos {
             Long categoryId,
             Boolean clearCategory,
             Instant deadline,
-            Boolean clearDeadline) {
+            Boolean clearDeadline,
+            @Min(0) @Max(100) Short importance,
+            Boolean clearImportance) {
     }
 
     /**
@@ -102,6 +104,6 @@ public final class TaskDtos {
                                Instant createdAt, PersonRef createdBy, PersonRef assignee, List<LabelRef> labels,
                                int subtaskCount, int subtaskDone, int commentCount,
                                CategoryRef category, Instant deadline, Instant updatedAt, int categoryPosition,
-                               List<ConditionRef> conditions) {
+                               List<ConditionRef> conditions, Short importance) {
     }
 }

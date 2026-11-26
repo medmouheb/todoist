@@ -121,6 +121,7 @@
             <select class="input" [ngModel]="task()!.priority" (ngModelChange)="setPriority($event)" [disabled]="!canEdit()" aria-label="Priority">
               @for (p of [1, 2, 3, 4]; track p) { <option [ngValue]="p">Priority {{ p }}</option> }
             </select>
+            @if (task()!.importance !== null) { <span class="hint">Importance {{ task()!.importance }} points, from Prioritize</span> }
           </div>
 
           <div class="prop">

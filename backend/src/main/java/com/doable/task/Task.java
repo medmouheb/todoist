@@ -95,6 +95,9 @@ public class Task {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
+    /** 0–100 from the comparison matrix; null until compared. */
+    private Short importance;
+
     /** Order inside its category, for the tree viewer. */
     @Column(name = "category_position", nullable = false)
     private int categoryPosition;
@@ -160,6 +163,8 @@ public class Task {
     public void setDeadlineMissedAt(Instant deadlineMissedAt) { this.deadlineMissedAt = deadlineMissedAt; }
     public Set<Label> getLabels() { return labels; }
     public Instant getUpdatedAt() { return updatedAt; }
+    public Short getImportance() { return importance; }
+    public void setImportance(Short importance) { this.importance = importance; }
     public int getCategoryPosition() { return categoryPosition; }
     public void setCategoryPosition(int categoryPosition) { this.categoryPosition = categoryPosition; }
 

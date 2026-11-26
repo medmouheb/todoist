@@ -205,7 +205,8 @@ public class TaskService {
                 && req.assigneeId() == null && req.labels() == null && req.clearDueDate() == null
                 && req.clearAssignee() == null && req.clearDueTime() == null && req.clearDuration() == null
                 && req.clearRecurrence() == null && req.categoryId() == null && req.clearCategory() == null
-                && req.deadline() == null && req.clearDeadline() == null;
+                && req.deadline() == null && req.clearDeadline() == null
+                && req.importance() == null && req.clearImportance() == null;
         boolean guestOwnTask = role == Role.GUEST && onlyCompleting && userId.equals(t.getAssigneeId());
         if (!role.atLeast(Role.MEMBER) && !guestOwnTask) {
             access.require(userId, t.getProjectId(), Role.MEMBER); // throws the 403
@@ -255,6 +256,8 @@ public class TaskService {
         }
         if (Boolean.TRUE.equals(req.clearDeadline())) t.setDeadline(null);
         else if (req.deadline() != null) t.setDeadline(req.deadline());
+        if (Boolean.TRUE.equals(req.clearImportance())) t.setImportance(null);
+        else if (req.importance() != null) t.setImportance(req.importance());
 
         if (req.projectId() != null && !req.projectId().equals(t.getProjectId())) {
             move(userId, t, req.projectId());
@@ -441,6 +444,7 @@ public class TaskService {
         m.put("duration", t.getDurationMinutes() == null ? null : t.getDurationMinutes() + " min");
         m.put("repeat", t.getRecurrence());
         m.put("deadline", t.getDeadline() == null ? null : t.getDeadline().toString());
+        m.put("importance", t.getImportance() == null ? null : t.getImportance() + " points");
         m.put("project", projectRepo.findById(t.getProjectId()).map(Project::getName).orElse(null));
         m.put("assignee", t.getAssigneeId() == null ? null : users.findById(t.getAssigneeId()).map(User::getName).orElse(null));
         m.put("labels", t.getLabels().isEmpty() ? null : t.getLabels().stream().map(Label::getName).sorted().collect(Collectors.joining(", ")));
@@ -605,7 +609,7 @@ public class TaskService {
                         String title = after == null ? null : after.getTitle();
                         return new TaskDtos.ConditionRef(x.getId(), x.getType(), x.getValue(), x.getAfterTaskId(), title,
                                 x.getStartTime(), x.getEndTime(), x.describe(title), met);
-                    }).toList());
+                    }).toList(), t.getImportance());
         }).toList();
     }
 

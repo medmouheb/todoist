@@ -132,6 +132,8 @@ export interface Task {
   /** Order inside its category */
   categoryPosition: number;
   conditions: Condition[];
+  /** 0–100 from the comparison matrix; null until compared */
+  importance: number | null;
 }
 
 export interface CategoryRef {
@@ -201,6 +203,8 @@ export interface TaskChanges {
   clearCategory?: boolean;
   deadline?: string;
   clearDeadline?: boolean;
+  importance?: number;
+  clearImportance?: boolean;
 }
 
 export type TaskView = 'inbox' | 'today' | 'upcoming';

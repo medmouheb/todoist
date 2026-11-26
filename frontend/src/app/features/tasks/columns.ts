@@ -3,7 +3,7 @@ import { Project, Task, TimeFormat } from '../../core/models';
 
 /** A column of data shown for each task in the tree viewer. The title column always shows and fills the rest. */
 export type ColumnKey =
-  | 'priority' | 'due' | 'duration' | 'deadline' | 'category' | 'conditions' | 'labels' | 'assignee' | 'project' | 'created' | 'updated';
+  | 'priority' | 'importance' | 'due' | 'duration' | 'deadline' | 'category' | 'conditions' | 'labels' | 'assignee' | 'project' | 'created' | 'updated';
 
 export interface Column {
   key: ColumnKey;
@@ -14,6 +14,7 @@ export interface Column {
 
 export const COLUMNS: Column[] = [
   { key: 'priority', label: 'Priority', width: 64 },
+  { key: 'importance', label: 'Importance', width: 84 },
   { key: 'due', label: 'Date', width: 96 },
   { key: 'duration', label: 'Duration', width: 76 },
   { key: 'deadline', label: 'Deadline', width: 96 },
@@ -49,6 +50,8 @@ export function cellOf(t: Task, key: ColumnKey, ctx: CellContext): Cell {
   switch (key) {
     case 'priority':
       return t.priority === 4 ? EMPTY : { text: 'P' + t.priority, tone: 'p' + t.priority };
+    case 'importance':
+      return t.importance === null ? EMPTY : { text: t.importance + ' pts', tone: t.importance >= 75 ? 'p1' : t.importance >= 50 ? 'p2' : undefined };
     case 'due': {
       if (!t.dueDate) return EMPTY;
       const c = dueChip(t.dueDate, t.dueTime, ctx.timeFormat);

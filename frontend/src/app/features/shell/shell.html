@@ -46,8 +46,13 @@
     <a class="nav" routerLink="/today" routerLinkActive="on"><app-icon name="today" /><span>Today</span></a>
     <a class="nav" routerLink="/upcoming" routerLinkActive="on"><app-icon name="upcoming" /><span>Upcoming</span></a>
     <a class="nav" routerLink="/completed" routerLinkActive="on"><app-icon name="done" /><span>Completed</span></a>
-    <a class="nav" routerLink="/tree" routerLinkActive="on"><app-icon name="tree" /><span>Tree</span></a>
+    <a class="nav" routerLink="/tree" routerLinkActive="on"><app-icon name="tree" /><span>Tree viewer</span></a>
     <a class="nav" routerLink="/history" routerLinkActive="on"><app-icon name="history" /><span>History</span></a>
+
+    <div class="cap">Helpers</div>
+    <a class="nav" routerLink="/prioritize" routerLinkActive="on"><app-icon name="matrix" /><span>Prioritize</span></a>
+    <a class="nav" routerLink="/plan" routerLinkActive="on"><app-icon name="plan" /><span>Plan</span></a>
+    <a class="nav" routerLink="/fill-in" routerLinkActive="on"><app-icon name="wand" /><span>Fill in details</span></a>
 
     @if (store.favorites().length) {
       <div class="cap">Favorites</div>
