@@ -102,6 +102,29 @@ public class Task {
     @Column(name = "category_position", nullable = false)
     private int categoryPosition;
 
+    /** What kind of to-do it is; DELETED is set when the task is deleted. */
+    @Column(nullable = false, length = 20)
+    private String state = TodoState.TODO.name();
+
+    /** When it can be done. */
+    @Column(name = "possible_times", nullable = false, length = 20)
+    private String possibleTimes = PossibleTimes.ALL_TIMES.name();
+
+    // Reason to do it.
+    @Column(name = "reason_money")
+    private Double reasonMoney;
+    @Column(name = "reason_hours_per_year")
+    private Double reasonHoursPerYear;
+    /** 0–10. */
+    @Column(name = "reason_emotional")
+    private Short reasonEmotional;
+
+    /** A notification at a chosen moment, and when it went out. */
+    @Column(name = "notification_time")
+    private Instant notificationTime;
+    @Column(name = "notified_at")
+    private Instant notifiedAt;
+
     @ManyToMany
     @JoinTable(name = "task_labels", joinColumns = @JoinColumn(name = "task_id"),
             inverseJoinColumns = @JoinColumn(name = "label_id"))
@@ -167,6 +190,27 @@ public class Task {
     public void setImportance(Short importance) { this.importance = importance; }
     public int getCategoryPosition() { return categoryPosition; }
     public void setCategoryPosition(int categoryPosition) { this.categoryPosition = categoryPosition; }
+
+    public TodoState getState() { return TodoState.valueOf(state); }
+    public void setState(TodoState state) { this.state = state.name(); }
+    public PossibleTimes getPossibleTimes() { return PossibleTimes.valueOf(possibleTimes); }
+    public void setPossibleTimes(PossibleTimes possibleTimes) { this.possibleTimes = possibleTimes.name(); }
+    public Double getReasonMoney() { return reasonMoney; }
+    public void setReasonMoney(Double reasonMoney) { this.reasonMoney = reasonMoney; }
+    public Double getReasonHoursPerYear() { return reasonHoursPerYear; }
+    public void setReasonHoursPerYear(Double reasonHoursPerYear) { this.reasonHoursPerYear = reasonHoursPerYear; }
+    public Short getReasonEmotional() { return reasonEmotional; }
+    public void setReasonEmotional(Short reasonEmotional) { this.reasonEmotional = reasonEmotional; }
+    public Instant getNotificationTime() { return notificationTime; }
+    public void setNotificationTime(Instant notificationTime) { this.notificationTime = notificationTime; }
+    public Instant getNotifiedAt() { return notifiedAt; }
+    public void setNotifiedAt(Instant notifiedAt) { this.notifiedAt = notifiedAt; }
+
+    /** What kind of to-do a task is. */
+    public enum TodoState { TODO, DAILY, WEEKLY, MONTHLY, TO_FOLLOW_UP, CONDITIONAL, DELETED }
+
+    /** When a task can be done. */
+    public enum PossibleTimes { ALL_TIMES, WORKING_HOURS, ONLY_WEEKENDS }
 
     /** Marks the task as changed by someone now (not by background jobs like reminders). */
     public void touch() { this.updatedAt = Instant.now(); }

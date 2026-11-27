@@ -1,3 +1,4 @@
+import type { PossibleTimesKey, ReasonToDoIt, TodoStateKey } from './todo';
 export type Theme = 'system' | 'light' | 'dark';
 export type TimeFormat = '24h' | '12h';
 export type HomeView = 'today' | 'inbox' | 'upcoming';
@@ -134,6 +135,15 @@ export interface Task {
   conditions: Condition[];
   /** 0–100 from the comparison matrix; null until compared */
   importance: number | null;
+  /** The ToDo model's extra fields; see core/todo.ts. */
+  state: TodoStateKey;
+  possibleTimes: PossibleTimesKey;
+  reason: ReasonToDoIt | null;
+  /** ISO instant: when to notify, and when that notification went out */
+  notificationTime: string | null;
+  notifiedAt: string | null;
+  /** Why it wasn't done when notified, oldest first */
+  notDone: { id: number; notificationTime: string; reasons: string[]; createdAt: string }[];
 }
 
 export interface CategoryRef {
@@ -179,6 +189,10 @@ export interface NewTask {
   labels?: string[];
   categoryId?: number | null;
   deadline?: string | null;
+  state?: TodoStateKey;
+  possibleTimes?: PossibleTimesKey;
+  reason?: ReasonToDoIt | null;
+  notificationTime?: string | null;
 }
 
 export interface TaskChanges {
@@ -205,6 +219,12 @@ export interface TaskChanges {
   clearDeadline?: boolean;
   importance?: number;
   clearImportance?: boolean;
+  state?: TodoStateKey;
+  possibleTimes?: PossibleTimesKey;
+  reason?: ReasonToDoIt;
+  clearReason?: boolean;
+  notificationTime?: string;
+  clearNotificationTime?: boolean;
 }
 
 export type TaskView = 'inbox' | 'today' | 'upcoming';

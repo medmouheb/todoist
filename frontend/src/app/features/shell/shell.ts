@@ -146,7 +146,7 @@ export class Shell {
     }
     if (e.key === 'q') {
       e.preventDefault();
-      this.store.quickAdd.set(true);
+      this.store.openQuickAdd();
     } else if (e.key === '?') {
       e.preventDefault();
       this.store.shortcutsOpen.set(true);

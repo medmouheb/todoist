@@ -13,6 +13,7 @@ import { DatePicker } from '../../shared/date-picker';
 import { Dropdown, avatarColor } from '../../shared/dropdown';
 import { TaskEditor, toLocalInput } from './task-editor';
 import { TaskRow } from './task-row';
+import { PossibleTimesKey, ReasonToDoIt, TodoPossibleTimesEnum, TodoStateEnum, TodoStateKey } from '../../core/todo';
 
 /** The full view of one task: every field, its sub-tasks and its comments. */
 @Component({
@@ -252,6 +253,46 @@ export class TaskDetail {
     this.actions.update(t.id, { description: this.description });
   }
 
+  protected readonly saving = signal(false);
+
+  /** Saves the name and description if they changed (other fields save as you pick them), then closes. */
+  protected save(): void {
+    const t = this.task();
+    if (!t || !this.canEdit() || this.saving()) return;
+    const title = this.title.trim();
+    const description = this.description.trim();
+    const changes: { title?: string; description?: string } = {};
+    if (title && title !== t.title && title !== this.sentTitle) changes.title = title;
+    if (description !== (t.description ?? '') && description !== this.sentDescription) changes.description = this.description;
+    if (!changes.title && changes.description === undefined) {
+      this.store.toast('Saved');
+      return this.close();
+    }
+    this.saving.set(true);
+    this.sentTitle = changes.title ?? this.sentTitle;
+    this.sentDescription = changes.description !== undefined ? description : this.sentDescription;
+    this.api.updateTask(t.id, changes).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.store.tasksChanged();
+        this.store.toast('Saved');
+        this.close();
+      },
+      error: (err) => {
+        this.saving.set(false);
+        this.store.toast(errorMessage(err));
+      },
+    });
+  }
+
+  @HostListener('document:keydown.control.s', ['$event'])
+  @HostListener('document:keydown.meta.s', ['$event'])
+  protected onSaveKey(e: Event): void {
+    if (!this.store.openTaskId()) return;
+    e.preventDefault();
+    this.save();
+  }
+
   protected due() {
     return dueOf(this.task()!);
   }
@@ -293,6 +334,79 @@ export class TaskDetail {
     const t = this.task();
     if (!t) return;
     this.actions.update(t.id, local ? { deadline: new Date(local).toISOString() } : { clearDeadline: true });
+  }
+
+  // ---- the ToDo model: state, when it can be done, notification, reason, why not done ----
+
+  protected readonly states = TodoStateEnum.ALL;
+  protected readonly possibleTimes = TodoPossibleTimesEnum.ALL;
+  protected notDoneText = '';
+
+  protected async setState(key: TodoStateKey): Promise<void> {
+    const t = this.task();
+    if (!t || key === t.state) return;
+    // Deleted is what deleting does; it goes through the usual delete (with Undo).
+    if (key === 'DELETED') {
+      if (this.canDelete()) this.actions.remove(t);
+      else this.store.toast('Only the project’s admins can delete tasks here');
+      this.task.set({ ...t });
+      return;
+    }
+    this.actions.update(t.id, { state: key });
+  }
+
+  protected setPossibleTimes(key: PossibleTimesKey): void {
+    const t = this.task();
+    if (t && key !== t.possibleTimes) this.actions.update(t.id, { possibleTimes: key });
+  }
+
+  protected notificationInput(): string {
+    const n = this.task()?.notificationTime;
+    return n ? toLocalInput(n) : '';
+  }
+
+  protected setNotification(local: string): void {
+    const t = this.task();
+    if (!t) return;
+    this.actions.update(t.id, local ? { notificationTime: new Date(local).toISOString() } : { clearNotificationTime: true });
+  }
+
+  protected setReason(part: keyof ReasonToDoIt, raw: string): void {
+    const t = this.task();
+    if (!t) return;
+    let v: number | null = raw === '' ? null : Number(raw);
+    if (v !== null && !Number.isFinite(v)) return;
+    if (part === 'emotionalOnScaleTo10' && v !== null) v = Math.max(0, Math.min(10, Math.round(v)));
+    const reason: ReasonToDoIt = { money: null, timeToGainInYearByHours: null, emotionalOnScaleTo10: null, ...t.reason, [part]: v };
+    const empty = Object.values(reason).every((x) => x === null);
+    this.actions.update(t.id, empty ? { clearReason: true } : { reason });
+  }
+
+  protected addNotDone(): void {
+    const t = this.task();
+    const reasons = this.notDoneText.split(',').map((r) => r.trim()).filter(Boolean);
+    if (!t || !reasons.length) return;
+    this.api.addNotDone(t.id, reasons).subscribe({
+      next: (saved) => {
+        this.notDoneText = '';
+        this.task.set(saved);
+        this.store.tasksChanged();
+      },
+      error: (err) => this.store.toast(errorMessage(err)),
+    });
+  }
+
+  protected removeNotDone(entryId: number): void {
+    const t = this.task();
+    if (!t) return;
+    this.api.removeNotDone(t.id, entryId).subscribe({
+      next: (saved) => this.task.set(saved),
+      error: (err) => this.store.toast(errorMessage(err)),
+    });
+  }
+
+  protected when(iso: string): string {
+    return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   }
 
   protected readonly durations = [5, 15, 30, 45, 60, 90, 120, 180, 240, 480];

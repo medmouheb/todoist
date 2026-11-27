@@ -41,7 +41,7 @@
 .desc { width: 100%; margin: 6px 0 0 24px; width: calc(100% - 24px); border: 1px solid transparent; border-radius: var(--radius-md); padding: 6px; background: transparent; resize: vertical; font-size: 14px; color: var(--ink); }
 
 h3 { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 20px 0 4px; }
-.subs, .comments { padding-left: 24px; }
+.subs, .comments, .notdone { padding-left: 24px; }
 .add { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; color: var(--ink-muted); cursor: pointer; padding: 8px 0; }
 .add:hover { color: var(--brand-ink); }
 .adding { padding: 8px 0; }
@@ -105,3 +105,19 @@ h3 { font-size: 14px; }
 .lb-ask { display: flex; gap: 6px; flex: 1 1 280px; }
 .lb-ask .input { height: 32px; }
 .lb-sent { font-weight: 600; color: var(--brand-ink); }
+
+.top .save { margin-right: 4px; }
+.top .save:disabled { opacity: .6; }
+
+/* Reason to do it */
+.reason { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.reason label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--ink-muted); }
+.reason .input { width: 100%; min-width: 0; }
+
+/* Why not done when notified */
+.notdone .nd { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.notdone .nd-when { flex: none; font-size: 12px; }
+.notdone .nd-reasons { flex: 1; display: flex; flex-wrap: wrap; gap: 4px; }
+.notdone .nd-chip { background: var(--surface-sunken); border-radius: var(--radius-sm); padding: 1px 8px; }
+.notdone .nd-form { display: flex; gap: 6px; margin-top: 8px; }
+.notdone .nd-form .input { flex: 1; }

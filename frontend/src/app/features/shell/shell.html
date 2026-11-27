@@ -35,7 +35,7 @@
       </app-dropdown>
     </div>
 
-    <button class="add-btn" type="button" (click)="store.quickAdd.set(true)" title="Add task (Q)">
+    <button class="add-btn" type="button" (click)="store.openQuickAdd()" title="Add task (Q)">
       <app-icon name="plus" />Add task<span class="kbd">Q</span>
     </button>
 
@@ -130,7 +130,7 @@
     <div class="top">
       <button class="ibtn" type="button" aria-label="Open menu" (click)="sidebarOpen.set(true)"><app-icon name="menu" /></button>
       <span class="grow"></span>
-      <button class="ibtn" type="button" aria-label="Add task" (click)="store.quickAdd.set(true)"><app-icon name="plus" /></button>
+      <button class="ibtn" type="button" aria-label="Add task" (click)="store.openQuickAdd()"><app-icon name="plus" /></button>
     </div>
     <router-outlet />
   </main>
@@ -139,7 +139,7 @@
 @if (store.quickAdd()) {
   <div class="overlay" (click)="store.quickAdd.set(false)">
     <div class="modal quick" role="dialog" aria-label="Add task" (click)="$event.stopPropagation()">
-      <app-task-editor (saved)="store.quickAdd.set(false)" (cancelled)="store.quickAdd.set(false)" />
+      <app-task-editor [defaultCategoryId]="store.quickAddCategoryId()" (saved)="store.quickAdd.set(false)" (cancelled)="store.quickAdd.set(false)" />
     </div>
   </div>
 }

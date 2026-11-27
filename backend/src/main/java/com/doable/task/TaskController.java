@@ -84,6 +84,19 @@ public class TaskController {
         return tasks.removeCondition(CurrentUser.id(jwt), id, conditionId);
     }
 
+    /** Why it wasn't done when it was notified. */
+    @PostMapping("/{id}/not-done")
+    @ResponseStatus(HttpStatus.CREATED)
+    public TaskResponse addNotDone(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+                                   @Valid @RequestBody TaskDtos.NotDoneRequest req) {
+        return tasks.addNotDone(CurrentUser.id(jwt), id, req);
+    }
+
+    @DeleteMapping("/{id}/not-done/{entryId}")
+    public TaskResponse removeNotDone(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id, @PathVariable Long entryId) {
+        return tasks.removeNotDone(CurrentUser.id(jwt), id, entryId);
+    }
+
     // ---- editing locks ----
 
     public record UnlockRequest(@jakarta.validation.constraints.Size(max = 300) String message) {

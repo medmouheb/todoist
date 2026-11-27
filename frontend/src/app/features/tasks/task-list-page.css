@@ -118,3 +118,12 @@ h1 { font-size: 30px; line-height: 38px; font-weight: 800; letter-spacing: -.02e
 @keyframes bob { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-6px) rotate(4deg); } }
 .add { border-radius: 10px; padding-left: 4px; transition: color .15s ease; }
 @media (prefers-reduced-motion: reduce) { .hero-blob, .empty::before { animation: none; } }
+
+/* Dropping a text list onto the page */
+.page { position: relative; }
+.page.text-drop { outline: 2px dashed var(--brand); outline-offset: -8px; border-radius: var(--radius-lg); background: var(--brand-tint); }
+.drop-hint {
+  position: sticky; top: 12px; z-index: 5; display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin: 0 auto 12px; width: fit-content; padding: 8px 14px; border-radius: 999px;
+  background: var(--brand); color: var(--on-brand); font-weight: 600; font-size: 13px; pointer-events: none;
+}

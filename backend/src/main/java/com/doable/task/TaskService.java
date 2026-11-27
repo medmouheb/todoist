@@ -73,12 +73,14 @@ public class TaskService {
     private final TaskConditionRepository conditions;
     private final TaskLockService locks;
     private final com.doable.project.ProjectMemberRepository members;
+    private final TaskNotDoneRepository notDone;
 
     public TaskService(TaskRepository tasks, ProjectService projects, ProjectRepository projectRepo, ProjectAccess access,
                        LabelService labels, CommentRepository comments, CategoryRepository categories,
                        UserRepository users, NotificationService notifications, ActivityService activity,
                        TaskConditionRepository conditions, TaskLockService locks,
-                       com.doable.project.ProjectMemberRepository members) {
+                       com.doable.project.ProjectMemberRepository members, TaskNotDoneRepository notDone) {
+        this.notDone = notDone;
         this.conditions = conditions;
         this.locks = locks;
         this.members = members;
@@ -192,6 +194,10 @@ public class TaskService {
         if (req.labels() != null) t.getLabels().addAll(labels.resolve(userId, req.labels()));
         if (req.categoryId() != null) t.setCategoryId(ownCategory(userId, req.categoryId()).getId());
         t.setDeadline(req.deadline());
+        if (req.state() != null) t.setState(liveState(req.state()));
+        if (req.possibleTimes() != null) t.setPossibleTimes(req.possibleTimes());
+        setReason(t, req.reason());
+        t.setNotificationTime(req.notificationTime());
         if (t.getCategoryId() != null) t.setCategoryPosition(tasks.nextCategoryPosition(t.getCategoryId()));
         t.setPosition(tasks.countInProject(projectId));
         tasks.save(t);
@@ -212,7 +218,9 @@ public class TaskService {
                 && req.clearAssignee() == null && req.clearDueTime() == null && req.clearDuration() == null
                 && req.clearRecurrence() == null && req.categoryId() == null && req.clearCategory() == null
                 && req.deadline() == null && req.clearDeadline() == null
-                && req.importance() == null && req.clearImportance() == null;
+                && req.importance() == null && req.clearImportance() == null
+                && req.state() == null && req.possibleTimes() == null && req.reason() == null && req.clearReason() == null
+                && req.notificationTime() == null && req.clearNotificationTime() == null;
         boolean guestOwnTask = role == Role.GUEST && onlyCompleting && userId.equals(t.getAssigneeId());
         if (!role.atLeast(Role.MEMBER) && !guestOwnTask) {
             access.require(userId, t.getProjectId(), Role.MEMBER); // throws the 403
@@ -264,6 +272,14 @@ public class TaskService {
         else if (req.deadline() != null) t.setDeadline(req.deadline());
         if (Boolean.TRUE.equals(req.clearImportance())) t.setImportance(null);
         else if (req.importance() != null) t.setImportance(req.importance());
+        if (req.state() != null) t.setState(liveState(req.state()));
+        if (req.possibleTimes() != null) t.setPossibleTimes(req.possibleTimes());
+        if (Boolean.TRUE.equals(req.clearReason())) setReason(t, new TaskDtos.Reason(null, null, null));
+        else if (req.reason() != null) setReason(t, req.reason());
+        Instant oldNotification = t.getNotificationTime();
+        if (Boolean.TRUE.equals(req.clearNotificationTime())) t.setNotificationTime(null);
+        else if (req.notificationTime() != null) t.setNotificationTime(req.notificationTime());
+        if (!Objects.equals(oldNotification, t.getNotificationTime())) t.setNotifiedAt(null);
 
         if (req.projectId() != null && !req.projectId().equals(t.getProjectId())) {
             move(userId, t, req.projectId());
@@ -419,7 +435,10 @@ public class TaskService {
         access.require(userId, t.getProjectId(), Role.MEMBER);
         Instant now = Instant.now();
         List<Task> all = subtree(t);
-        all.forEach(x -> x.setDeletedAt(now));
+        all.forEach(x -> {
+            x.setDeletedAt(now);
+            x.setState(Task.TodoState.DELETED);
+        });
         activity.record(userId, t.getProjectId(), t.getId(), t.getTitle(), Action.DELETED,
                 all.size() > 1 ? Map.of("sub-tasks", java.util.Arrays.asList(all.size() - 1, null)) : null);
     }
@@ -434,6 +453,7 @@ public class TaskService {
         while (!todo.isEmpty()) {
             Task x = todo.removeLast();
             x.setDeletedAt(null);
+            if (x.getState() == Task.TodoState.DELETED) x.setState(Task.TodoState.TODO);
             todo.addAll(tasks.deletedChildren(x.getId(), when));
         }
         activity.record(userId, t.getProjectId(), t.getId(), t.getTitle(), Action.RESTORED, null);
@@ -461,6 +481,10 @@ public class TaskService {
         m.put("repeat", t.getRecurrence());
         m.put("deadline", t.getDeadline() == null ? null : t.getDeadline().toString());
         m.put("importance", t.getImportance() == null ? null : t.getImportance() + " points");
+        m.put("state", t.getState() == Task.TodoState.TODO ? null : t.getState().name());
+        m.put("possible times", t.getPossibleTimes() == Task.PossibleTimes.ALL_TIMES ? null : t.getPossibleTimes().name());
+        m.put("reason", describeReason(t));
+        m.put("notification", t.getNotificationTime() == null ? null : t.getNotificationTime().toString());
         m.put("project", projectRepo.findById(t.getProjectId()).map(Project::getName).orElse(null));
         m.put("assignee", t.getAssigneeId() == null ? null : users.findById(t.getAssigneeId()).map(User::getName).orElse(null));
         m.put("labels", t.getLabels().isEmpty() ? null : t.getLabels().stream().map(Label::getName).sorted().collect(Collectors.joining(", ")));
@@ -492,6 +516,61 @@ public class TaskService {
         }
         if (Boolean.TRUE.equals(completing) || Boolean.FALSE.equals(completing)) changes.remove("date");
         activity.record(userId, t.getProjectId(), t.getId(), t.getTitle(), Action.UPDATED, changes);
+    }
+
+    // ---- the ToDo model: state, reason, notification and why it wasn't done ----
+
+    /** DELETED is what deleting a task sets; asking for it directly is a mistake. */
+    private static Task.TodoState liveState(Task.TodoState s) {
+        if (s == Task.TodoState.DELETED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Delete the task to give it the DELETED state.");
+        }
+        return s;
+    }
+
+    private static void setReason(Task t, TaskDtos.Reason r) {
+        if (r == null) return;
+        t.setReasonMoney(r.money());
+        t.setReasonHoursPerYear(r.timeToGainInYearByHours());
+        t.setReasonEmotional(r.emotionalOnScaleTo10());
+    }
+
+    private static TaskDtos.Reason reasonOf(Task t) {
+        if (t.getReasonMoney() == null && t.getReasonHoursPerYear() == null && t.getReasonEmotional() == null) return null;
+        return new TaskDtos.Reason(t.getReasonMoney(), t.getReasonHoursPerYear(), t.getReasonEmotional());
+    }
+
+    private static String describeReason(Task t) {
+        List<String> parts = new ArrayList<>();
+        if (t.getReasonMoney() != null) parts.add("money " + t.getReasonMoney());
+        if (t.getReasonHoursPerYear() != null) parts.add(t.getReasonHoursPerYear() + " h/year");
+        if (t.getReasonEmotional() != null) parts.add("emotional " + t.getReasonEmotional() + "/10");
+        return parts.isEmpty() ? null : String.join(", ", parts);
+    }
+
+    /** Records why the task wasn't done when it was notified (its last notification, or now). */
+    @Transactional
+    public TaskResponse addNotDone(Long userId, Long taskId, TaskDtos.NotDoneRequest req) {
+        Task t = visible(userId, taskId);
+        access.require(userId, t.getProjectId(), Role.MEMBER);
+        List<String> reasons = req.reasons().stream().map(String::trim).filter(s -> !s.isEmpty()).toList();
+        if (reasons.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Give at least one reason.");
+        Instant when = t.getNotifiedAt() != null ? t.getNotificationTime() : Instant.now();
+        notDone.save(new TaskNotDone(t.getId(), when == null ? Instant.now() : when, reasons, userId));
+        t.touch();
+        activity.record(userId, t.getProjectId(), t.getId(), t.getTitle(), Action.UPDATED,
+                Map.of("not done because", java.util.Arrays.asList(null, String.join(", ", reasons))));
+        return toResponse(t);
+    }
+
+    @Transactional
+    public TaskResponse removeNotDone(Long userId, Long taskId, Long entryId) {
+        Task t = visible(userId, taskId);
+        access.require(userId, t.getProjectId(), Role.MEMBER);
+        TaskNotDone e = notDone.findById(entryId).filter(x -> x.getTaskId().equals(taskId))
+                .orElseThrow(() -> new NotFoundException("Entry"));
+        notDone.delete(e);
+        return toResponse(t);
     }
 
     // ---- helpers ----
@@ -604,6 +683,10 @@ public class TaskService {
                 .collect(Collectors.groupingBy(TaskCondition::getTaskId));
         List<Long> afterIds = conds.values().stream().flatMap(List::stream).map(TaskCondition::getAfterTaskId)
                 .filter(Objects::nonNull).distinct().toList();
+        Map<Long, List<TaskDtos.NotDoneRef>> notDoneByTask = notDone.findByTaskIdInOrderByIdAsc(ids).stream()
+                .collect(Collectors.groupingBy(TaskNotDone::getTaskId, Collectors.mapping(
+                        n -> new TaskDtos.NotDoneRef(n.getId(), n.getNotificationTime(), n.getReasons(), n.getCreatedAt()),
+                        Collectors.toList())));
         Map<Long, Task> afters = afterIds.isEmpty() ? Map.of() : tasks.findAllById(afterIds).stream()
                 .collect(Collectors.toMap(Task::getId, Function.identity()));
         return list.stream().map(t -> {
@@ -625,7 +708,9 @@ public class TaskService {
                         String title = after == null ? null : after.getTitle();
                         return new TaskDtos.ConditionRef(x.getId(), x.getType(), x.getValue(), x.getAfterTaskId(), title,
                                 x.getStartTime(), x.getEndTime(), x.describe(title), met);
-                    }).toList(), t.getImportance());
+                    }).toList(), t.getImportance(),
+                    t.getState(), t.getPossibleTimes(), reasonOf(t), t.getNotificationTime(), t.getNotifiedAt(),
+                    notDoneByTask.getOrDefault(t.getId(), List.of()));
         }).toList();
     }
 

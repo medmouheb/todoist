@@ -316,6 +316,41 @@ export class TaskListPage {
     this.dropTarget.set(key);
   }
 
+  // ---- dropping a text list onto the page adds one top-level task per line ----
+
+  protected readonly textDrop = signal(false);
+  /** Handed to the add-task editor; a new object each time so the same text can be dropped twice. */
+  protected readonly droppedText = signal<{ text: string } | null>(null);
+
+  private isTextDrag(e: DragEvent): boolean {
+    const types = e.dataTransfer?.types ?? [];
+    return this.canAdd() && types.includes('text/plain') && !types.includes('application/x-doable-task');
+  }
+
+  protected onTextDragOver(e: DragEvent): void {
+    if (!this.isTextDrag(e)) return;
+    e.preventDefault();
+    e.dataTransfer!.dropEffect = 'copy';
+    this.textDrop.set(true);
+  }
+
+  protected onTextDragLeave(e: DragEvent): void {
+    const to = e.relatedTarget as Node | null;
+    if (!to || !(e.currentTarget as HTMLElement).contains(to)) this.textDrop.set(false);
+  }
+
+  protected onTextDrop(e: DragEvent): void {
+    this.textDrop.set(false);
+    if (!this.isTextDrag(e)) return;
+    const text = e.dataTransfer?.getData('text/plain') ?? '';
+    if (!text.trim()) return;
+    e.preventDefault();
+    const target = this.sections().find((s) => s.tone !== 'overdue' && !s.collapsible);
+    if (!target) return this.store.toast('Set “Group by” to None to drop a list of tasks here');
+    this.droppedText.set({ text });
+    this.adding.set(target.key);
+  }
+
   protected onDrop(e: DragEvent, date: string | null | undefined): void {
     this.dropTarget.set(null);
     if (date === undefined) return;

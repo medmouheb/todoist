@@ -18,7 +18,9 @@ h1 { font-size: 30px; line-height: 38px; margin: 0; font-weight: 800; letter-spa
 .hint { font-size: 12px; color: var(--ink-subtle); margin: 0 0 10px; }
 
 ul { list-style: none; margin: 0; padding: 0; }
-.scroller { overflow-x: auto; padding-bottom: 4px; }
+/* Scrolls both ways inside itself, so the column header stays pinned on top and the horizontal
+   scrollbar is always on screen. */
+.scroller { overflow: auto; max-height: max(360px, calc(100dvh - 250px)); padding-bottom: 4px; overscroll-behavior: contain; }
 
 /* Column header, right-aligned like the cells so every column lines up at every depth. */
 .head { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px 0 20px; position: sticky; top: 0; z-index: 3;
@@ -55,17 +57,16 @@ li { animation: grow .32s cubic-bezier(.2, .7, .3, 1) backwards; animation-delay
 
 /* Block A (tasks) and block B (sub-categories) */
 .block { margin: 4px 0 6px 12px; padding-left: 12px; border-left: 1.5px dashed var(--border); }
-.bhead { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+.bhead { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: transparent; cursor: pointer; text-align: left; border-radius: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
   color: var(--ink-subtle); padding: 6px 0 4px; }
 .bicon { width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; }
 .bicon.a { background: color-mix(in srgb, var(--brand) 14%, transparent); color: var(--brand-ink); }
 .bicon.b { background: color-mix(in srgb, #e8a33d 18%, transparent); color: #b8741a; }
 .bn { font-weight: 600; color: var(--ink-subtle); letter-spacing: 0; }
 
-.bucket { min-height: 36px; border-radius: 10px; transition: background .15s; }
+.bucket { min-height: 24px; border-radius: 10px; transition: background .15s; }
 .bucket.cdk-drop-list-receiving { background: color-mix(in srgb, var(--brand) 6%, transparent); }
 .bucket.cdk-drop-list-dragging { background: color-mix(in srgb, var(--brand) 9%, transparent); }
-.drop-here { font-size: 12px; padding: 9px 10px; border: 1.5px dashed var(--border); border-radius: 10px; text-align: center; }
 
 /* Sub-task connector lines */
 .subtasks { margin-left: 22px; padding-left: 8px; border-left: 1.5px solid var(--border); }
@@ -126,3 +127,12 @@ li { animation: grow .32s cubic-bezier(.2, .7, .3, 1) backwards; animation-delay
 .empty p { margin: 0; }
 .skeleton { height: 44px; border-radius: 12px; background: var(--surface-sunken); margin-bottom: 8px; }
 @media (prefers-reduced-motion: reduce) { li { animation: none; } .kids, .chev, .trow, .type { transition: none; } }
+
+.bhead:hover { color: var(--ink-muted); background: var(--surface-hover); }
+.bhead:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+/* Add task, at the end of a category's tasks */
+.badd { display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 10px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--ink-muted); font-size: 13px; cursor: pointer; text-align: left; }
+.badd .plus { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: var(--brand-ink); }
+.badd:hover { color: var(--brand-ink); background: var(--surface-hover); }
+.badd:hover .plus { background: var(--brand); color: var(--on-brand); }

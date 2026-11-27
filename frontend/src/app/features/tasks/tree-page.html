@@ -88,17 +88,34 @@
     <div class="kids" [class.shut]="!isOpen(c.key)">
       <div class="kids-inner">
         <div class="block">
-          <div class="bhead"><span class="bicon a"><app-icon name="check" [small]="true" /></span>Tasks<span class="bn">{{ c.bucket.nodes.length }}</span></div>
-          <ng-container [ngTemplateOutlet]="bucketTpl" [ngTemplateOutletContext]="{ $implicit: c.bucket }" />
+          <button type="button" class="bhead" [attr.aria-expanded]="isOpen(c.key + ':tasks')" (click)="toggle(c.key + ':tasks')">
+            <app-icon name="chevron" [small]="true" class="chev" [class.shut]="!isOpen(c.key + ':tasks')" />
+            <span class="bicon a"><app-icon name="check" [small]="true" /></span>Tasks<span class="bn">{{ c.bucket.nodes.length }}</span>
+          </button>
+          <div class="kids" [class.shut]="!isOpen(c.key + ':tasks')">
+            <div class="kids-inner">
+              <ng-container [ngTemplateOutlet]="bucketTpl" [ngTemplateOutletContext]="{ $implicit: c.bucket }" />
+              <button type="button" class="badd" [title]="'Add a task in ' + c.name + ' (like Q)'" (click)="store.openQuickAdd(c.category?.id ?? null)">
+                <span class="plus"><app-icon name="plus" [small]="true" /></span>Add task
+              </button>
+            </div>
+          </div>
         </div>
         @if (c.children.length) {
           <div class="block">
-            <div class="bhead"><span class="bicon b"><app-icon name="category" [small]="true" /></span>Categories<span class="bn">{{ c.children.length }}</span></div>
-            <ul role="group" class="subcats">
-              @for (k of c.children; track k.key) {
-                <ng-container [ngTemplateOutlet]="catTpl" [ngTemplateOutletContext]="{ $implicit: k, depth: depth + 1 }" />
-              }
-            </ul>
+            <button type="button" class="bhead" [attr.aria-expanded]="isOpen(c.key + ':cats')" (click)="toggle(c.key + ':cats')">
+              <app-icon name="chevron" [small]="true" class="chev" [class.shut]="!isOpen(c.key + ':cats')" />
+              <span class="bicon b"><app-icon name="category" [small]="true" /></span>Categories<span class="bn">{{ c.children.length }}</span>
+            </button>
+            <div class="kids" [class.shut]="!isOpen(c.key + ':cats')">
+              <div class="kids-inner">
+                <ul role="group" class="subcats">
+                  @for (k of c.children; track k.key) {
+                    <ng-container [ngTemplateOutlet]="catTpl" [ngTemplateOutletContext]="{ $implicit: k, depth: depth + 1 }" />
+                  }
+                </ul>
+              </div>
+            </div>
           </div>
         }
       </div>
@@ -166,8 +183,6 @@
           }
         </ng-template>
       </li>
-    } @empty {
-      <li class="drop-here muted">Drop tasks here</li>
     }
   </ul>
 </ng-template>

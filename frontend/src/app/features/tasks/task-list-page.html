@@ -1,4 +1,7 @@
-<div class="page">
+<div class="page" [class.text-drop]="textDrop()" (dragover)="onTextDragOver($event)" (dragleave)="onTextDragLeave($event)" (drop)="onTextDrop($event)">
+  @if (textDrop()) {
+    <div class="drop-hint" aria-hidden="true"><app-icon name="plus" />Drop to add one task per line</div>
+  }
   @if (view() === 'today') {
     <section class="hero" aria-label="Your day">
       <div class="hero-blob"></div>
@@ -136,10 +139,11 @@
             @if (s.tone !== 'overdue' && canAdd() && !s.collapsible) {
               @if (adding() === s.key) {
                 <div class="adding">
-                  <app-task-editor [defaultProjectId]="projectId()" [defaultDueDate]="s.date ?? null" (cancelled)="adding.set(null)" />
+                  <app-task-editor [defaultProjectId]="projectId()" [defaultDueDate]="s.date ?? null" [initialText]="droppedText()"
+                                   (cancelled)="adding.set(null); droppedText.set(null)" />
                 </div>
               } @else {
-                <button class="add" type="button" (click)="adding.set(s.key)">
+                <button class="add" type="button" (click)="droppedText.set(null); adding.set(s.key)">
                   <span class="plus"><app-icon name="plus" [small]="true" /></span>Add task
                 </button>
               }

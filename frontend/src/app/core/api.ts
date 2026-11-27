@@ -210,6 +210,12 @@ export class Api {
   removeCondition(taskId: number, conditionId: number): Observable<Task> {
     return this.http.delete<Task>(`/api/tasks/${taskId}/conditions/${conditionId}`);
   }
+  addNotDone(taskId: number, reasons: string[]): Observable<Task> {
+    return this.http.post<Task>(`/api/tasks/${taskId}/not-done`, { reasons });
+  }
+  removeNotDone(taskId: number, entryId: number): Observable<Task> {
+    return this.http.delete<Task>(`/api/tasks/${taskId}/not-done/${entryId}`);
+  }
   completedTasks(projectId?: number): Observable<Task[]> {
     return this.http.get<Task[]>('/api/tasks/completed', { params: projectId ? { projectId } : {} });
   }

@@ -60,6 +60,7 @@ public class ReminderService {
         try {
             remindTimedTasks(now);
             checkDeadlines(now);
+            notifyAtChosenTime(now);
         } catch (RuntimeException e) {
             log.warn("Reminder check failed: {}", e.getMessage());
         }
@@ -103,6 +104,20 @@ public class ReminderService {
                 notifications.reminder(u.getId(), Type.DEADLINE_SOON, t,
                         "Deadline soon: “" + t.getTitle() + "” is due " + when + where(t));
             }
+        }
+    }
+
+    /** The notification time someone picked for the task. Long-past ones are marked sent without nagging. */
+    void notifyAtChosenTime(Instant now) {
+        var found = tasks.needingNotification(now);
+        if (found.isEmpty()) return;
+        Map<Long, User> people = people(found.stream().map(this::recipient).collect(Collectors.toSet()));
+        for (Task t : found) {
+            t.setNotifiedAt(now);
+            User u = people.get(recipient(t));
+            if (u == null || now.isAfter(t.getNotificationTime().plus(Duration.ofHours(1)))) continue;
+            notifications.reminder(u.getId(), Type.REMINDER, t,
+                    "Time to do “" + t.getTitle() + "”" + where(t) + ". Not doing it now? Tell why in the task.");
         }
     }
 

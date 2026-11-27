@@ -51,6 +51,14 @@ export class Store {
   /** Requests to unlock tasks you're editing: task id → the request's text. */
   readonly unlockRequests = signal(new Map<number, string>());
   readonly quickAdd = signal(false);
+  /** Category the quick-add form starts with (from the tree viewer); cleared when it closes. */
+  readonly quickAddCategoryId = signal<number | null>(null);
+
+  /** Opens the quick-add form (like Q), optionally with a category already picked. */
+  openQuickAdd(categoryId: number | null = null): void {
+    this.quickAddCategoryId.set(categoryId);
+    this.quickAdd.set(true);
+  }
   readonly shareProjectId = signal<number | null>(null);
   /** The project being edited in the project dialog, or 'new'. */
   readonly editingProject = signal<Project | 'new' | null>(null);

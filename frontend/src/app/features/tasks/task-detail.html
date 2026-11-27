@@ -12,6 +12,11 @@
       @if (lock()?.mine) {
         <span class="editing" title="Others can read it but not change it until you close it"><app-icon name="lock" [small]="true" />You’re editing</span>
       }
+      @if (canEdit() && task()) {
+        <button type="button" class="btn primary sm save" title="Save and close (Ctrl+S)" [disabled]="saving()" (mousedown)="$event.preventDefault()" (click)="save()">
+          <app-icon name="done" [small]="true" />Save
+        </button>
+      }
       @if (canDelete()) {
         <button type="button" class="ibtn" title="Delete task" (click)="actions.remove(task()!)"><app-icon name="trash" /></button>
       }
@@ -75,6 +80,30 @@
               } @else {
                 <button type="button" class="add" (click)="addingSub.set(true)"><app-icon name="plus" [small]="true" />Add sub-task</button>
               }
+            }
+          </section>
+
+          <section class="notdone">
+            <h3><app-icon name="bell" [small]="true" />Why not done when notified
+              @if (task()!.notDone.length) { <span class="muted">{{ task()!.notDone.length }}</span> }</h3>
+            @for (n of task()!.notDone; track n.id) {
+              <div class="nd">
+                <span class="muted nd-when">{{ when(n.notificationTime) }}</span>
+                <span class="nd-reasons">@for (r of n.reasons; track $index) { <span class="nd-chip">{{ r }}</span> }</span>
+                @if (canEdit()) {
+                  <button type="button" class="ibtn sm" title="Remove" (click)="removeNotDone(n.id)"><app-icon name="trash" [small]="true" /></button>
+                }
+              </div>
+            } @empty {
+              <p class="hint">@if (task()!.notifiedAt) { It was notified {{ ago(task()!.notifiedAt!) }}. Not done yet? Say why below. }
+                @else { Set a notification time; if it isn’t done when notified, note why here. }</p>
+            }
+            @if (canEdit() && !task()!.completed) {
+              <form class="nd-form" (ngSubmit)="addNotDone()">
+                <input class="input" name="notDone" [(ngModel)]="notDoneText" maxlength="900"
+                       placeholder="Reasons, separated by commas (e.g. too tired, missing info)" aria-label="Why it wasn’t done" />
+                <button type="submit" class="btn sm" [disabled]="!notDoneText.trim()">Add</button>
+              </form>
             }
           </section>
 
@@ -196,6 +225,41 @@
           <div class="prop">
             <span class="plabel">Conditions</span>
             <app-conditions-editor [task]="task()!" [canEdit]="canEdit()" (changed)="task.set($event)" />
+          </div>
+
+          <div class="prop">
+            <span class="plabel">State</span>
+            <select class="input" [ngModel]="task()!.state" (ngModelChange)="setState($event)" [disabled]="!canEdit()" aria-label="State">
+              @for (s of states; track s.key) { <option [ngValue]="s.key">{{ s.value }}</option> }
+            </select>
+          </div>
+
+          <div class="prop">
+            <span class="plabel">When it can be done</span>
+            <select class="input" [ngModel]="task()!.possibleTimes" (ngModelChange)="setPossibleTimes($event)" [disabled]="!canEdit()" aria-label="When it can be done">
+              @for (p of possibleTimes; track p.key) { <option [ngValue]="p.key">{{ p.value }}</option> }
+            </select>
+          </div>
+
+          <div class="prop">
+            <span class="plabel">Notification</span>
+            <input class="input" type="datetime-local" [ngModel]="notificationInput()" (change)="setNotification($any($event.target).value)" [disabled]="!canEdit()" aria-label="Notification time" />
+            @if (task()!.notifiedAt) { <span class="hint">Notified {{ ago(task()!.notifiedAt!) }}</span> }
+          </div>
+
+          <div class="prop">
+            <span class="plabel">Reason to do it</span>
+            <div class="reason">
+              <label><span>Money</span>
+                <input class="input" type="number" step="any" placeholder="—" [ngModel]="task()!.reason?.money ?? null"
+                       (change)="setReason('money', $any($event.target).value)" [disabled]="!canEdit()" /></label>
+              <label><span>Hours / year</span>
+                <input class="input" type="number" min="0" step="any" placeholder="—" [ngModel]="task()!.reason?.timeToGainInYearByHours ?? null"
+                       (change)="setReason('timeToGainInYearByHours', $any($event.target).value)" [disabled]="!canEdit()" /></label>
+              <label><span>Emotional /10</span>
+                <input class="input" type="number" min="0" max="10" step="1" placeholder="—" [ngModel]="task()!.reason?.emotionalOnScaleTo10 ?? null"
+                       (change)="setReason('emotionalOnScaleTo10', $any($event.target).value)" [disabled]="!canEdit()" /></label>
+            </div>
           </div>
 
           @if (members().length) {

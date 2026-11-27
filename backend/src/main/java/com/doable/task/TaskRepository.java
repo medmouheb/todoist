@@ -50,6 +50,11 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             + "and t.reminderSentAt is null and t.dueDate between :from and :to")
     List<Task> needingReminder(LocalDate from, LocalDate to);
 
+    /** Open tasks whose chosen notification time has come and that haven't been notified yet. */
+    @Query("select t from Task t where t.completed = false and t.deletedAt is null and t.notificationTime is not null "
+            + "and t.notifiedAt is null and t.notificationTime <= :now")
+    List<Task> needingNotification(Instant now);
+
     /** Deadlines within the next day not yet warned about, or already passed and not yet reported. */
     @Query("select t from Task t where t.completed = false and t.deletedAt is null and t.deadline is not null "
             + "and ((t.deadlineWarnedAt is null and t.deadline <= :soon) or (t.deadlineMissedAt is null and t.deadline <= :now))")

@@ -1,10 +1,12 @@
 package com.doable.task;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -33,7 +35,23 @@ public final class TaskDtos {
             Long assigneeId,
             List<@Size(max = 60) String> labels,
             Long categoryId,
-            Instant deadline) {
+            Instant deadline,
+            Task.TodoState state,
+            Task.PossibleTimes possibleTimes,
+            @Valid Reason reason,
+            Instant notificationTime) {
+    }
+
+    /** Why a task is worth doing. Any part may be empty. */
+    public record Reason(Double money, @PositiveOrZero Double timeToGainInYearByHours,
+                         @Min(0) @Max(10) Short emotionalOnScaleTo10) {
+    }
+
+    /** Why a task wasn't done when it was notified. */
+    public record NotDoneRequest(@NotEmpty @Size(max = 20) List<@NotBlank @Size(max = 300) String> reasons) {
+    }
+
+    public record NotDoneRef(Long id, Instant notificationTime, List<String> reasons, Instant createdAt) {
     }
 
     /**
@@ -65,7 +83,13 @@ public final class TaskDtos {
             Instant deadline,
             Boolean clearDeadline,
             @Min(0) @Max(100) Short importance,
-            Boolean clearImportance) {
+            Boolean clearImportance,
+            Task.TodoState state,
+            Task.PossibleTimes possibleTimes,
+            @Valid Reason reason,
+            Boolean clearReason,
+            Instant notificationTime,
+            Boolean clearNotificationTime) {
     }
 
     /**
@@ -104,6 +128,8 @@ public final class TaskDtos {
                                Instant createdAt, PersonRef createdBy, PersonRef assignee, List<LabelRef> labels,
                                int subtaskCount, int subtaskDone, int commentCount,
                                CategoryRef category, Instant deadline, Instant updatedAt, int categoryPosition,
-                               List<ConditionRef> conditions, Short importance) {
+                               List<ConditionRef> conditions, Short importance,
+                               Task.TodoState state, Task.PossibleTimes possibleTimes, Reason reason,
+                               Instant notificationTime, Instant notifiedAt, List<NotDoneRef> notDone) {
     }
 }
